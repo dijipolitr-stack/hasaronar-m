@@ -105,6 +105,35 @@ const GECMIS_SMS=[
   {id:5,tarih:"19.03.2024",saat:"10:00",durum:"bekliyor",sablon:"Teklif / Onay",alici:"0532 123 45 67",n:131},
 ];
 
+
+// ── DEMO DOSYA LİSTESİ ──────────────────────────────────────────────────────
+const DEMO_DOSYALAR = [
+  {
+    id:"HSR-2024-0847", plaka:"34 ABC 123", sahip:"Mehmet Yılmaz", telefon:"0532 123 45 67",
+    arac:"Toyota Corolla 1.6 (2021)", sigorta:"AXA Sigorta A.Ş.", bransi:"Kasko",
+    muallakHasar:"28.500 ₺", acilisTarihi:"15.03.2024", durum:"Aktif",
+    aktifAdim:"Teklif / Onay", ilerleme:37,
+  },
+  {
+    id:"HSR-2024-0831", plaka:"06 TY 5521", sahip:"Ayşe Kara", telefon:"0542 987 65 43",
+    arac:"Honda Civic 1.5 (2022)", sigorta:"Allianz Sigorta", bransi:"Trafik",
+    muallakHasar:"14.200 ₺", acilisTarihi:"08.03.2024", durum:"Aktif",
+    aktifAdim:"Onarım", ilerleme:62,
+  },
+  {
+    id:"HSR-2024-0819", plaka:"35 KL 9980", sahip:"Ahmet Demir", telefon:"0555 111 22 33",
+    arac:"Ford Focus 1.6 (2019)", sigorta:"Generali Sigorta", bransi:"Kasko",
+    muallakHasar:"9.800 ₺", acilisTarihi:"02.03.2024", durum:"Tamamlandı",
+    aktifAdim:"Araç Teslimi", ilerleme:100,
+  },
+  {
+    id:"HSR-2024-0805", plaka:"34 ZZZ 0001", sahip:"Fatma Şahin", telefon:"0533 444 55 66",
+    arac:"Volkswagen Golf 1.4 (2020)", sigorta:"HDI Sigorta", bransi:"Kasko",
+    muallakHasar:"42.000 ₺", acilisTarihi:"22.02.2024", durum:"Aktif",
+    aktifAdim:"Ekspertiz İncelemesi", ilerleme:25,
+  },
+];
+
 const KATEGORILER=[{id:"tumu",label:"Tümü",ikon:"🖼️"},{id:"kaza",label:"Kaza",ikon:"💥"},{id:"ekspertiz",label:"Ekspertiz",ikon:"🔍"},{id:"onarim",label:"Onarım",ikon:"🔧"},{id:"teslimat",label:"Teslimat",ikon:"✅"}];
 
 const svgUrl=(emoji,label,sub,c)=>`data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%231a1f2e'/><rect x='20' y='20' width='360' height='260' rx='8' fill='%23232b3e'/><text x='200' y='130' text-anchor='middle' fill='${encodeURIComponent(c)}' font-size='40'>${emoji}</text><text x='200' y='175' text-anchor='middle' fill='%2394A3B8' font-size='14' font-family='sans-serif'>${label}</text><text x='200' y='198' text-anchor='middle' fill='%2364748B' font-size='12' font-family='sans-serif'>${sub}</text></svg>`;
@@ -260,6 +289,139 @@ function SmsToast({toast,onKapat}){
   );
 }
 
+
+
+// ── DANIŞMAN DASHBOARD ───────────────────────────────────────────────────────
+function DanismanDashboard({onDosyaSec,onYeniDosya,onCikis}){
+  const [arama,setArama]=useState("");
+  const [secilen,setSecilen]=useState(null);
+  const [isMobile,setIsMobile]=useState(false);
+  useEffect(()=>{const c=()=>setIsMobile(window.innerWidth<768);c();window.addEventListener("resize",c);return()=>window.removeEventListener("resize",c);},[]);
+
+  const filtreli = arama.trim().length>0
+    ? DEMO_DOSYALAR.filter(d=>
+        d.id.toLowerCase().includes(arama.toLowerCase()) ||
+        d.plaka.toLowerCase().replace(/\s/g,"").includes(arama.toLowerCase().replace(/\s/g,"")) ||
+        d.sahip.toLowerCase().includes(arama.toLowerCase())
+      )
+    : DEMO_DOSYALAR;
+
+  const durumRenk={Aktif:"#4F46E5", Tamamlandı:"#10B981"};
+  const P=isMobile?14:24;
+
+  return(
+    <div style={{fontFamily:"'Inter',sans-serif",background:"#0D1117",minHeight:"100vh",color:"#E2E8F0"}}>
+      {/* Header */}
+      <div style={{background:"#111827",borderBottom:"1px solid rgba(255,255,255,0.07)",padding:`0 ${P}px`,height:56,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:36,height:36,borderRadius:9,background:"linear-gradient(135deg,#1E40AF,#4F46E5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>🛡️</div>
+          <div>
+            <div style={{fontWeight:800,fontSize:15}}>HasarTrack</div>
+            <div style={{fontSize:10,color:"#475569"}}>Hasar Danışmanı Paneli</div>
+          </div>
+        </div>
+        <button onClick={onCikis} style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.2)",color:"#EF4444",borderRadius:7,padding:"6px 14px",fontSize:12,fontWeight:700}}>Çıkış</button>
+      </div>
+
+      <div style={{maxWidth:720,margin:"0 auto",padding:`${isMobile?20:40}px ${P}px`}}>
+
+        {/* Hoşgeldin */}
+        <div style={{marginBottom:32}}>
+          <div style={{fontWeight:800,fontSize:isMobile?22:28,letterSpacing:"-0.5px",marginBottom:8}}>Günaydın 👋</div>
+          <div style={{fontSize:14,color:"#64748B"}}>Mevcut bir dosyayı arayın veya yeni hasar dosyası oluşturun.</div>
+        </div>
+
+        {/* Arama kutusu */}
+        <div style={{position:"relative",marginBottom:16}}>
+          <div style={{position:"absolute",left:16,top:"50%",transform:"translateY(-50%)",fontSize:18,pointerEvents:"none"}}>🔍</div>
+          <input
+            type="text"
+            value={arama}
+            onChange={e=>setArama(e.target.value)}
+            placeholder="Plaka, dosya no veya müşteri adı girin..."
+            autoFocus
+            style={{width:"100%",background:"#161B26",border:"1px solid rgba(255,255,255,0.1)",borderRadius:12,color:"#E2E8F0",padding:"16px 16px 16px 48px",fontSize:15,boxShadow:"0 0 0 0 transparent",transition:"border .2s, box-shadow .2s"}}
+            onFocus={e=>{e.target.style.border="1px solid rgba(79,70,229,0.5)";e.target.style.boxShadow="0 0 0 3px rgba(79,70,229,0.1)";}}
+            onBlur={e=>{e.target.style.border="1px solid rgba(255,255,255,0.1)";e.target.style.boxShadow="none";}}
+          />
+          {arama&&<button onClick={()=>setArama("")} style={{position:"absolute",right:14,top:"50%",transform:"translateY(-50%)",background:"rgba(255,255,255,0.08)",border:"none",color:"#94A3B8",borderRadius:"50%",width:26,height:26,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>}
+        </div>
+
+        {/* Yeni dosya butonu */}
+        <button onClick={onYeniDosya} style={{width:"100%",background:"linear-gradient(135deg,rgba(79,70,229,0.2),rgba(79,70,229,0.08))",border:"2px dashed rgba(79,70,229,0.4)",borderRadius:12,padding:"16px",fontSize:14,fontWeight:700,color:"#818CF8",marginBottom:28,display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+          <div style={{width:32,height:32,borderRadius:8,background:"rgba(79,70,229,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18}}>+</div>
+          Yeni Hasar Dosyası Oluştur
+        </button>
+
+        {/* İstatistikler */}
+        {!arama&&(
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:24}}>
+            {[
+              {l:"Toplam Dosya",v:DEMO_DOSYALAR.length,c:"#818CF8",ikon:"📁"},
+              {l:"Aktif",v:DEMO_DOSYALAR.filter(d=>d.durum==="Aktif").length,c:"#4F46E5",ikon:"⬤"},
+              {l:"Tamamlandı",v:DEMO_DOSYALAR.filter(d=>d.durum==="Tamamlandı").length,c:"#10B981",ikon:"✓"},
+            ].map(k=>(
+              <div key={k.l} style={{background:"#161B26",border:"1px solid rgba(255,255,255,0.06)",borderRadius:10,padding:"14px"}}>
+                <div style={{fontSize:9,color:"#475569",fontWeight:700,letterSpacing:"0.5px",marginBottom:6}}>{k.l.toUpperCase()}</div>
+                <div style={{fontSize:26,fontWeight:800,color:k.c}}>{k.v}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Dosya listesi */}
+        <div>
+          <div style={{fontSize:12,color:"#475569",fontWeight:600,marginBottom:12,letterSpacing:"0.5px"}}>
+            {arama?`"${arama}" için ${filtreli.length} sonuç`:"SON DOSYALAR"}
+          </div>
+
+          {filtreli.length===0?(
+            <div style={{textAlign:"center",padding:"40px 20px",color:"#334155"}}>
+              <div style={{fontSize:44,marginBottom:12}}>🔎</div>
+              <div style={{fontWeight:700,fontSize:14,marginBottom:6}}>Sonuç bulunamadı</div>
+              <div style={{fontSize:12}}>"{arama}" ile eşleşen dosya yok</div>
+              <button onClick={onYeniDosya} style={{marginTop:16,background:"rgba(79,70,229,0.15)",border:"1px solid rgba(79,70,229,0.3)",color:"#818CF8",borderRadius:9,padding:"10px 20px",fontSize:13,fontWeight:700}}>Yeni Dosya Oluştur</button>
+            </div>
+          ):(
+            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+              {filtreli.map(d=>{
+                const dc=durumRenk[d.durum]||"#64748B";
+                return(
+                  <button key={d.id} onClick={()=>onDosyaSec(d.id)} style={{background:"#161B26",border:`1px solid ${secilen===d.id?"rgba(79,70,229,0.5)":"rgba(255,255,255,0.07)"}`,borderRadius:12,padding:"16px",cursor:"pointer",textAlign:"left",transition:"border .15s, background .15s"}}
+                    onMouseEnter={e=>{e.currentTarget.style.background="#1a2030";e.currentTarget.style.border="1px solid rgba(79,70,229,0.3)";}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="#161B26";e.currentTarget.style.border="1px solid rgba(255,255,255,0.07)";}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+                      <div style={{display:"flex",gap:10,alignItems:"center"}}>
+                        <div style={{fontFamily:"'JetBrains Mono',monospace",fontSize:13,fontWeight:700,color:"#818CF8",background:"rgba(79,70,229,0.12)",padding:"3px 9px",borderRadius:5}}>{d.id}</div>
+                        <div style={{fontWeight:800,fontSize:14}}>{d.plaka}</div>
+                      </div>
+                      <div style={{display:"flex",gap:6,alignItems:"center",flexShrink:0}}>
+                        <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,background:`${dc}18`,color:dc,border:`1px solid ${dc}30`}}>{d.durum}</span>
+                        <span style={{color:"#475569",fontSize:16}}>›</span>
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:isMobile?12:24,flexWrap:"wrap",marginBottom:10}}>
+                      <div><div style={{fontSize:9,color:"#475569",fontWeight:600}}>ARAÇ</div><div style={{fontSize:12,color:"#94A3B8",marginTop:2}}>{d.arac}</div></div>
+                      <div><div style={{fontSize:9,color:"#475569",fontWeight:600}}>MÜŞTERİ</div><div style={{fontSize:12,color:"#94A3B8",marginTop:2}}>{d.sahip}</div></div>
+                      <div><div style={{fontSize:9,color:"#475569",fontWeight:600}}>SİGORTA</div><div style={{fontSize:12,color:"#94A3B8",marginTop:2}}>{d.sigorta}</div></div>
+                      {!isMobile&&<div><div style={{fontSize:9,color:"#475569",fontWeight:600}}>MUALLAK HASAR</div><div style={{fontSize:12,color:"#F59E0B",fontWeight:600,marginTop:2}}>{d.muallakHasar}</div></div>}
+                    </div>
+                    <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                      <div style={{flex:1,height:4,background:"rgba(255,255,255,0.06)",borderRadius:2}}>
+                        <div style={{height:"100%",width:`${d.ilerleme}%`,borderRadius:2,background:`linear-gradient(90deg,${dc},${dc}80)`}}/>
+                      </div>
+                      <span style={{fontSize:10,color:"#64748B",fontFamily:"'JetBrains Mono',monospace",flexShrink:0"}}>%{d.ilerleme} · {d.aktifAdim}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── YENİ DOSYA SİHİRBAZI ────────────────────────────────────────────────────
 function YeniDosyaWizard({onKapat,onKaydet}){
@@ -989,7 +1151,6 @@ function DanismanPanel({onCikis}){
 
   // Edit mode per kart: "dosya"|"sahip"|"sigorta"|"onarimMerkezi"|"eksper"|"adim-N" vb.
   const [editMode,setEditMode]=useState(null);
-  const [wizardAcik,setWizardAcik]=useState(false);
   const [saving,setSaving]=useState(null);
 
   // Fotoğraf
@@ -1104,7 +1265,7 @@ function DanismanPanel({onCikis}){
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
           {!isMobile&&<Chip renk="#64748B">{dosya.acilisTarihi}</Chip>}
           {!isMobile&&smsAktif&&<Chip renk="#4F46E5">📱 SMS · {smsSaati}</Chip>}
-          <button onClick={()=>setWizardAcik(true)} style={{background:"rgba(16,185,129,0.12)",border:"1px solid rgba(16,185,129,0.25)",color:"#10B981",borderRadius:7,padding:"5px 12px",fontSize:11,fontWeight:700}}>+ Yeni Dosya</button>
+          <button onClick={onCikis} style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",color:"#94A3B8",borderRadius:7,padding:"5px 12px",fontSize:11,fontWeight:600}}>← Dosyalar</button>
           <button onClick={onCikis} style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.2)",color:"#EF4444",borderRadius:7,padding:"5px 12px",fontSize:11,fontWeight:700}}>Çıkış</button>
         </div>
       </div>
@@ -1562,7 +1723,7 @@ function DanismanPanel({onCikis}){
       )}
 
       <SmsToast toast={toast} onKapat={()=>setToast(null)}/>
-      {wizardAcik&&<YeniDosyaWizard onKapat={()=>setWizardAcik(false)} onKaydet={(data)=>{console.log("Yeni dosya kaydedildi",data);}}/>}
+
 
       {lightboxFoto&&(
         <Lightbox foto={lightboxFoto} onClose={()=>setLightboxFoto(null)} onPrev={()=>setLightboxFoto(filtrePhotos[lbIdx-1])} onNext={()=>setLightboxFoto(filtrePhotos[lbIdx+1])} hasPrev={lbIdx>0} hasNext={lbIdx<filtrePhotos.length-1}/>
@@ -1574,13 +1735,39 @@ function DanismanPanel({onCikis}){
 // ── ANA ROUTER ──────────────────────────────────────────────────────────────
 function App(){
   const [ekran,setEkran]=useState("rolsecim");
+  const [seciliDosyaId,setSeciliDosyaId]=useState(null);
+  const [wizardAcik,setWizardAcik]=useState(false);
+
+  const dosyaSec=(id)=>{ setSeciliDosyaId(id); setEkran("danisman-panel"); };
+  const yeniDosya=()=>{ setWizardAcik(true); };
+
   return(
     <>
       {ekran==="rolsecim"&&<RolSecim onRol={r=>setEkran(`${r}-giris`)}/>}
-      {ekran==="danisman-giris"&&<DanismanGiris onGiris={()=>setEkran("danisman")} onGeri={()=>setEkran("rolsecim")}/>}
+      {ekran==="danisman-giris"&&<DanismanGiris onGiris={()=>setEkran("danisman-dashboard")} onGeri={()=>setEkran("rolsecim")}/>}
       {ekran==="acente-giris"&&<AcenteGiris onGiris={()=>setEkran("acente")} onGeri={()=>setEkran("rolsecim")}/>}
       {ekran==="musteri-giris"&&<MusteriGiris onGiris={()=>setEkran("musteri")} onGeri={()=>setEkran("rolsecim")}/>}
-      {ekran==="danisman"&&<DanismanPanel onCikis={()=>setEkran("rolsecim")}/>}
+      {ekran==="danisman-dashboard"&&(
+        <>
+          <DanismanDashboard
+            onDosyaSec={dosyaSec}
+            onYeniDosya={()=>setWizardAcik(true)}
+            onCikis={()=>setEkran("rolsecim")}
+          />
+          {wizardAcik&&<YeniDosyaWizard
+            onKapat={()=>setWizardAcik(false)}
+            onKaydet={(data)=>{
+              setWizardAcik(false);
+              setEkran("danisman-panel");
+              setSeciliDosyaId("yeni");
+            }}
+          />}
+        </>
+      )}
+      {ekran==="danisman-panel"&&<DanismanPanel
+        dosyaId={seciliDosyaId}
+        onCikis={()=>{ setSeciliDosyaId(null); setEkran("danisman-dashboard"); }}
+      />}
       {ekran==="acente"&&<AcentePanel onCikis={()=>setEkran("rolsecim")}/>}
       {ekran==="musteri"&&<MusteriPanel onCikis={()=>setEkran("rolsecim")}/>}
     </>

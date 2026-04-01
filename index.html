@@ -1,887 +1,1143 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>HasarTrack – Hasar Danışmanı Paneli</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>HasarTrack</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body, #root { height: 100%; }
-    body { background: #0D1117; color: #E2E8F0; font-family: 'Inter', 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
+    body { background: #0D1117; color: #E2E8F0; font-family: 'Inter','Segoe UI',sans-serif; -webkit-font-smoothing: antialiased; }
     ::-webkit-scrollbar { width: 3px; height: 3px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #1E293B; border-radius: 2px; }
-    button { transition: filter 0.15s; font-family: inherit; }
-    button:hover { filter: brightness(1.12); }
-    textarea, input[type=text] { outline: none; }
+    button { transition: filter 0.15s; font-family: inherit; cursor: pointer; }
+    button:hover { filter: brightness(1.1); }
+    input, textarea { outline: none; font-family: inherit; }
     .toggle { position: relative; width: 44px; height: 24px; display: inline-block; }
     .toggle input { opacity: 0; width: 0; height: 0; }
     .slider { position: absolute; cursor: pointer; inset: 0; background: #334155; border-radius: 24px; transition: 0.3s; }
     .slider:before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.3s; }
     input:checked + .slider { background: #4F46E5; }
     input:checked + .slider:before { transform: translateX(20px); }
-    .photo-card { transition: transform 0.2s; }
     .photo-card:hover { transform: scale(1.02); }
+    .photo-card { transition: transform 0.2s; }
     .photo-card:hover .photo-overlay { opacity: 1 !important; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-    @keyframes fadeUp { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }
+    @keyframes fadeUp { from{transform:translateY(10px);opacity:0} to{transform:translateY(0);opacity:1} }
     @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes shimmer { 0%{opacity:0.4} 50%{opacity:0.9} 100%{opacity:0.4} }
+    @keyframes popIn { from{transform:scale(0.9);opacity:0} to{transform:scale(1);opacity:1} }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
   </style>
 </head>
 <body>
-  <div id="root"></div>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+// ─── VERİ ────────────────────────────────────────────────────────────────────
+const DOSYA = {
+  id: "HSR-2024-0847", acilisTarihi: "15.03.2024", oncelik: "Yüksek", durum: "Aktif",
+  arac: { plaka: "34 ABC 123", marka: "Toyota", model: "Corolla 1.6 Advance", yil: "2021", renk: "Sedef Beyaz", sase: "JTDBR12E200123456", kazaTarihi: "14.03.2024", kazaAciklama: "Sağ ön köşeye çarpma hasarı. Araç sürücü hatası." },
+  sahip: { ad: "Mehmet Yılmaz", tc: "12345678901", telefon: "0532 123 45 67", email: "m.yilmaz@email.com" },
+  onarimMerkezi: { ad: "Bosch Car Service – Kadıköy", yetkili: "Murat Doğan", telefon: "0216 450 30 20", email: "murat@boschkadikoy.com", adres: "Moda Cad. No:45, Kadıköy / İstanbul", aracGiris: "15.03.2024", tahminiTamir: "22.03.2024" },
+  sigortaSirketi: { ad: "AXA Sigorta A.Ş.", hasarNo: "HAK-2024-98231", temsilci: "Selin Kaya", telefon: "0212 444 09 09", email: "selin.kaya@axa.com.tr", police: "POL-2024-78432", teminat: "Kasko (Tam)", muafiyet: "2.500 ₺" },
+  eksper: { ad: "Ahmet Çelik", firma: "Alfa Ekspertiz Ltd.", lisans: "EKS-0023-IST", telefon: "0535 987 65 43", email: "ahmet@alfaekspertiz.com", incelemeTarihi: "17.03.2024", tahminiHasar: "28.500 ₺", onayDurumu: "Beklemede" },
+  onarimAdimlari: [
+    { id:1, ad:"Araç Kabulü",          tarih:"15.03.2024", durum:"tamamlandi", not:"Araç servise teslim edildi." },
+    { id:2, ad:"Ön Hasar Tespiti",     tarih:"16.03.2024", durum:"tamamlandi", not:"Sağ ön çamurluk, tampon ve far hasarlı." },
+    { id:3, ad:"Ekspertiz İncelemesi", tarih:"17.03.2024", durum:"tamamlandi", not:"Tahmini hasar 28.500 ₺ belirlendi." },
+    { id:4, ad:"Teklif / Onay",        tarih:"",           durum:"aktif",      not:"Proforma sigorta şirketine iletildi." },
+    { id:5, ad:"Parça Temini",         tarih:"",           durum:"bekliyor",   not:"" },
+    { id:6, ad:"Onarım",              tarih:"",           durum:"bekliyor",   not:"" },
+    { id:7, ad:"Boya & Son Kontrol",   tarih:"",           durum:"bekliyor",   not:"" },
+    { id:8, ad:"Araç Teslimi",         tarih:"",           durum:"bekliyor",   not:"" },
+  ],
+  evrakAdimlari: [
+    { id:1, ad:"Kaza Tespit Tutanağı",      kaynak:"Araç Sahibi",     durum:"tamam",    tarih:"15.03.2024" },
+    { id:2, ad:"Ehliyet Fotokopisi",         kaynak:"Araç Sahibi",     durum:"tamam",    tarih:"15.03.2024" },
+    { id:3, ad:"Ruhsat Fotokopisi",          kaynak:"Araç Sahibi",     durum:"tamam",    tarih:"15.03.2024" },
+    { id:4, ad:"Poliçe Kopyası",             kaynak:"Sigorta Şirketi", durum:"tamam",    tarih:"16.03.2024" },
+    { id:5, ad:"Eksper Raporu",              kaynak:"Eksper",          durum:"eksik",    tarih:"", uyari:"17.03 incelemesinden bu yana gönderilmedi." },
+    { id:6, ad:"Fotoğraflı Hasar Formu",     kaynak:"Onarım Merkezi",  durum:"eksik",    tarih:"", uyari:"Onarım merkezinden talep edilmeli." },
+    { id:7, ad:"Maliyet Teklifi (Proforma)", kaynak:"Onarım Merkezi",  durum:"eksik",    tarih:"", uyari:"Sigorta onayı için zorunlu belge." },
+    { id:8, ad:"Sigorta Onay Yazısı",        kaynak:"Sigorta Şirketi", durum:"bekliyor", tarih:"" },
+    { id:9, ad:"Teslim Tutanağı",            kaynak:"Onarım Merkezi",  durum:"bekliyor", tarih:"" },
+  ],
+  mesajlar: [
+    { id:1, gonderen:"Danışman",       hedef:"Eksper",         tarih:"18.03 09:12", mesaj:"Ahmet Bey, ekspertiz raporunu sisteme yükleyebilir misiniz?" },
+    { id:2, gonderen:"Eksper",         hedef:"Danışman",       tarih:"18.03 10:45", mesaj:"Rapor bugün öğleden sonra tamamlanacak." },
+    { id:3, gonderen:"Danışman",       hedef:"Onarım Merkezi", tarih:"18.03 11:00", mesaj:"Proforma fatura ve fotoğraflı hasar formunu bekliyoruz." },
+    { id:4, gonderen:"Onarım Merkezi", hedef:"Danışman",       tarih:"18.03 14:30", mesaj:"Fotoğraflar hazır, proforma yarına kadar gönderirim." },
+  ],
+};
 
-  <script type="text/babel">
-    const { useState, useEffect, useRef } = React;
+const SMS_SABLONLARI = {
+  "Araç Kabulü":          { ikon:"🔑", renk:"#10B981", baslik:"Araç Kabul Edildi",     mesaj:(d)=>`Sayın ${d.sahip.ad}, ${d.arac.plaka} plakalı aracınız ${d.onarimMerkezi.ad} servisine teslim alınmıştır. Dosya No: ${d.id}.` },
+  "Ön Hasar Tespiti":     { ikon:"🔍", renk:"#F59E0B", baslik:"Hasar Tespiti Yapıldı", mesaj:(d)=>`Sayın ${d.sahip.ad}, aracınızın ön hasar tespiti tamamlandı. Ekspertiz incelemesi planlanmaktadır.` },
+  "Ekspertiz İncelemesi": { ikon:"📋", renk:"#F59E0B", baslik:"Ekspertiz Tamamlandı",  mesaj:(d)=>`Sayın ${d.sahip.ad}, ekspertiz tamamlandı. Tahmini hasar: ${d.eksper.tahminiHasar}. Sigorta onayı beklenmektedir.` },
+  "Teklif / Onay":        { ikon:"⏳", renk:"#818CF8", baslik:"Onay Bekleniyor",        mesaj:(d)=>`Sayın ${d.sahip.ad}, onarım teklifiniz ${d.sigortaSirketi.ad}'na iletildi. Onay beklenmektedir.` },
+  "Parça Temini":         { ikon:"🔩", renk:"#3B82F6", baslik:"Parça Temin Süreci",    mesaj:(d)=>`Sayın ${d.sahip.ad}, aracınız için yedek parçalar temin edilmektedir. Tahmini teslim: ${d.onarimMerkezi.tahminiTamir}.` },
+  "Onarım":              { ikon:"🔧", renk:"#3B82F6", baslik:"Onarım Başladı",         mesaj:(d)=>`Sayın ${d.sahip.ad}, aracınızın onarımı başladı. Tahmini teslim: ${d.onarimMerkezi.tahminiTamir}.` },
+  "Boya & Son Kontrol":   { ikon:"✨", renk:"#10B981", baslik:"Son Kontrol",            mesaj:(d)=>`Sayın ${d.sahip.ad}, onarım tamamlandı, boya ve kalite kontrol aşamasındayız.` },
+  "Araç Teslimi":         { ikon:"🚗", renk:"#10B981", baslik:"Araç Teslime Hazır",    mesaj:(d)=>`Sayın ${d.sahip.ad}, aracınız teslime hazır. ${d.onarimMerkezi.ad} - ${d.onarimMerkezi.adres}` },
+};
 
-    // ─── VERİ ────────────────────────────────────────────────────────────────────
-    const DOSYA = {
-      id: "HSR-2024-0847",
-      acilisTarihi: "15.03.2024",
-      oncelik: "Yüksek",
-      durum: "Aktif",
-      arac: {
-        plaka: "34 ABC 123",
-        marka: "Toyota", model: "Corolla 1.6 Advance", yil: "2021",
-        renk: "Sedef Beyaz", sase: "JTDBR12E200123456",
-        kazaTarihi: "14.03.2024",
-        kazaAciklama: "Sağ ön köşeye çarpma hasarı. Araç sürücü hatası. Karşı taraf bilgisi alındı.",
-      },
-      sahip: { ad: "Mehmet Yılmaz", tc: "123 *** *** **", telefon: "0532 123 45 67", email: "m.yilmaz@email.com", iletisimTercihi: "SMS" },
-      onarimMerkezi: { ad: "Bosch Car Service – Kadıköy", yetkili: "Murat Doğan", telefon: "0216 450 30 20", email: "murat@boschkadikoy.com", adres: "Moda Cad. No:45, Kadıköy / İstanbul", aracGiris: "15.03.2024", tahminiTamir: "22.03.2024" },
-      sigortaSirketi: { ad: "AXA Sigorta A.Ş.", hasarNo: "HAK-2024-98231", temsilci: "Selin Kaya", telefon: "0212 444 09 09", email: "selin.kaya@axa.com.tr", police: "POL-2024-78432", teminat: "Kasko (Tam)", muafiyet: "2.500 ₺" },
-      eksper: { ad: "Ahmet Çelik", firma: "Alfa Ekspertiz Ltd.", lisans: "EKS-0023-IST", telefon: "0535 987 65 43", email: "ahmet@alfaekspertiz.com", incelemeTarihi: "17.03.2024", tahminiHasar: "28.500 ₺", onayDurumu: "Beklemede" },
-      onarimAdimlari: [
-        { id: 1, ad: "Araç Kabulü",          tarih: "15.03.2024", durum: "tamamlandi", not: "Araç servise teslim edildi." },
-        { id: 2, ad: "Ön Hasar Tespiti",     tarih: "16.03.2024", durum: "tamamlandi", not: "Sağ ön çamurluk, tampon ve far hasarlı." },
-        { id: 3, ad: "Ekspertiz İncelemesi", tarih: "17.03.2024", durum: "tamamlandi", not: "Tahmini hasar 28.500 ₺ belirlendi." },
-        { id: 4, ad: "Teklif / Onay",        tarih: "",           durum: "aktif",       not: "Proforma sigorta şirketine iletildi." },
-        { id: 5, ad: "Parça Temini",         tarih: "",           durum: "bekliyor",    not: "" },
-        { id: 6, ad: "Onarım",              tarih: "",           durum: "bekliyor",    not: "" },
-        { id: 7, ad: "Boya & Son Kontrol",   tarih: "",           durum: "bekliyor",    not: "" },
-        { id: 8, ad: "Araç Teslimi",         tarih: "",           durum: "bekliyor",    not: "" },
-      ],
-      evrakAdimlari: [
-        { id: 1, ad: "Kaza Tespit Tutanağı",      kaynak: "Araç Sahibi",     durum: "tamam",    tarih: "15.03.2024" },
-        { id: 2, ad: "Ehliyet Fotokopisi",         kaynak: "Araç Sahibi",     durum: "tamam",    tarih: "15.03.2024" },
-        { id: 3, ad: "Ruhsat Fotokopisi",          kaynak: "Araç Sahibi",     durum: "tamam",    tarih: "15.03.2024" },
-        { id: 4, ad: "Poliçe Kopyası",             kaynak: "Sigorta Şirketi", durum: "tamam",    tarih: "16.03.2024" },
-        { id: 5, ad: "Eksper Raporu",              kaynak: "Eksper",          durum: "eksik",    tarih: "", uyari: "17.03 incelemesinden bu yana gönderilmedi." },
-        { id: 6, ad: "Fotoğraflı Hasar Formu",     kaynak: "Onarım Merkezi",  durum: "eksik",    tarih: "", uyari: "Onarım merkezinden talep edilmeli." },
-        { id: 7, ad: "Maliyet Teklifi (Proforma)", kaynak: "Onarım Merkezi",  durum: "eksik",    tarih: "", uyari: "Sigorta onayı için zorunlu belge." },
-        { id: 8, ad: "Sigorta Onay Yazısı",        kaynak: "Sigorta Şirketi", durum: "bekliyor", tarih: "" },
-        { id: 9, ad: "Teslim Tutanağı",            kaynak: "Onarım Merkezi",  durum: "bekliyor", tarih: "" },
-      ],
-      mesajlar: [
-        { id: 1, gonderen: "Danışman",       hedef: "Eksper",         tarih: "18.03 09:12", mesaj: "Ahmet Bey, ekspertiz raporunu sisteme yükleyebilir misiniz?" },
-        { id: 2, gonderen: "Eksper",         hedef: "Danışman",       tarih: "18.03 10:45", mesaj: "Rapor bugün öğleden sonra tamamlanacak, iletirim." },
-        { id: 3, gonderen: "Danışman",       hedef: "Onarım Merkezi", tarih: "18.03 11:00", mesaj: "Proforma fatura ve fotoğraflı hasar formunu bekliyoruz." },
-        { id: 4, gonderen: "Onarım Merkezi", hedef: "Danışman",       tarih: "18.03 14:30", mesaj: "Fotoğraflar hazır, proforma yarına kadar gönderirim." },
-      ],
-    };
+const GECMIS_SMS = [
+  { id:1, tarih:"15.03.2024", saat:"10:00", durum:"iletildi", sablon:"Araç Kabulü",          alici:"0532 123 45 67", n:128 },
+  { id:2, tarih:"16.03.2024", saat:"10:00", durum:"iletildi", sablon:"Ön Hasar Tespiti",    alici:"0532 123 45 67", n:119 },
+  { id:3, tarih:"17.03.2024", saat:"10:00", durum:"iletildi", sablon:"Ekspertiz İncelemesi", alici:"0532 123 45 67", n:142 },
+  { id:4, tarih:"18.03.2024", saat:"10:00", durum:"iletildi", sablon:"Teklif / Onay",        alici:"0532 123 45 67", n:131 },
+  { id:5, tarih:"19.03.2024", saat:"10:00", durum:"bekliyor", sablon:"Teklif / Onay",        alici:"0532 123 45 67", n:131 },
+];
 
-    const SMS_SABLONLARI = {
-      "Araç Kabulü":          { ikon: "🔑", renk: "#10B981", baslik: "Araç Kabul Edildi",     mesaj: (d) => `Sayın ${d.sahip.ad}, ${d.arac.plaka} plakalı aracınız ${d.onarimMerkezi.ad} servisine teslim alınmıştır. Dosya No: ${d.id}.` },
-      "Ön Hasar Tespiti":     { ikon: "🔍", renk: "#F59E0B", baslik: "Hasar Tespiti Yapıldı", mesaj: (d) => `Sayın ${d.sahip.ad}, aracınızın ön hasar tespiti tamamlandı. Ekspertiz incelemesi planlanmaktadır.` },
-      "Ekspertiz İncelemesi": { ikon: "📋", renk: "#F59E0B", baslik: "Ekspertiz Tamamlandı",  mesaj: (d) => `Sayın ${d.sahip.ad}, ekspertiz tamamlandı. Tahmini hasar: ${d.eksper.tahminiHasar}. Sigorta onayı beklenmektedir.` },
-      "Teklif / Onay":        { ikon: "⏳", renk: "#818CF8", baslik: "Onay Bekleniyor",        mesaj: (d) => `Sayın ${d.sahip.ad}, aracınız için onarım teklifi ${d.sigortaSirketi.ad}'na iletildi. Onay beklenmektedir.` },
-      "Parça Temini":         { ikon: "🔩", renk: "#3B82F6", baslik: "Parça Temin Süreci",    mesaj: (d) => `Sayın ${d.sahip.ad}, aracınız için yedek parçalar temin edilmektedir. Tahmini teslim: ${d.onarimMerkezi.tahminiTamir}.` },
-      "Onarım":              { ikon: "🔧", renk: "#3B82F6", baslik: "Onarım Başladı",         mesaj: (d) => `Sayın ${d.sahip.ad}, ${d.arac.plaka} plakalı aracınızın onarımı başladı. Tahmini teslim: ${d.onarimMerkezi.tahminiTamir}.` },
-      "Boya & Son Kontrol":   { ikon: "✨", renk: "#10B981", baslik: "Son Kontrol",            mesaj: (d) => `Sayın ${d.sahip.ad}, aracınızın onarımı tamamlandı, boya ve kalite kontrol aşamasına geçildi.` },
-      "Araç Teslimi":         { ikon: "🚗", renk: "#10B981", baslik: "Araç Teslime Hazır",    mesaj: (d) => `Sayın ${d.sahip.ad}, aracınız teslime hazır. ${d.onarimMerkezi.ad} - ${d.onarimMerkezi.adres}` },
-    };
+// Demo kullanıcılar
+const KULLANICILAR = {
+  danisman:  { sifre: "hasar2024", rol: "danisman" },
+  acente:    { sifre: "acente2024", rol: "acente" },
+};
+// Müşteri demo: TC=12345678901, SMS=1234
 
-    const GECMIS_SMS = [
-      { id: 1, tarih: "15.03.2024", saat: "10:00", durum: "iletildi", sablon: "Araç Kabulü",          alici: "0532 123 45 67", n: 128 },
-      { id: 2, tarih: "16.03.2024", saat: "10:00", durum: "iletildi", sablon: "Ön Hasar Tespiti",    alici: "0532 123 45 67", n: 119 },
-      { id: 3, tarih: "17.03.2024", saat: "10:00", durum: "iletildi", sablon: "Ekspertiz İncelemesi", alici: "0532 123 45 67", n: 142 },
-      { id: 4, tarih: "18.03.2024", saat: "10:00", durum: "iletildi", sablon: "Teklif / Onay",        alici: "0532 123 45 67", n: 131 },
-      { id: 5, tarih: "19.03.2024", saat: "10:00", durum: "bekliyor", sablon: "Teklif / Onay",        alici: "0532 123 45 67", n: 131 },
-    ];
+const TC_CONFIG = {
+  "Araç Sahibi":     { renk:"#F59E0B", icon:"👤", bg:"rgba(245,158,11,0.1)" },
+  "Sigorta Şirketi": { renk:"#3B82F6", icon:"🏦", bg:"rgba(59,130,246,0.1)" },
+  "Onarım Merkezi":  { renk:"#8B5CF6", icon:"🔧", bg:"rgba(139,92,246,0.1)" },
+  "Eksper":          { renk:"#10B981", icon:"🔎", bg:"rgba(16,185,129,0.1)" },
+  "Danışman":        { renk:"#4F46E5", icon:"🛡️", bg:"rgba(79,70,229,0.1)" },
+};
+const ED = { tamam:{renk:"#10B981",icon:"✓",label:"Teslim"}, eksik:{renk:"#EF4444",icon:"!",label:"Eksik"}, bekliyor:{renk:"#64748B",icon:"○",label:"Bekliyor"} };
 
-    const svgUrl = (emoji, label, sub, c) => {
-      const enc = (s) => s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-      return `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%231a1f2e'/><rect x='20' y='20' width='360' height='260' rx='8' fill='%23232b3e'/><text x='200' y='130' text-anchor='middle' fill='${encodeURIComponent(c)}' font-size='40'>${emoji}</text><text x='200' y='175' text-anchor='middle' fill='%2394A3B8' font-size='14' font-family='sans-serif'>${enc(label)}</text><text x='200' y='198' text-anchor='middle' fill='%2364748B' font-size='12' font-family='sans-serif'>${enc(sub)}</text></svg>`;
-    };
+const svgUrl = (emoji, label, sub, c) => `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='300'><rect width='400' height='300' fill='%231a1f2e'/><rect x='20' y='20' width='360' height='260' rx='8' fill='%23232b3e'/><text x='200' y='130' text-anchor='middle' fill='${encodeURIComponent(c)}' font-size='40'>${emoji}</text><text x='200' y='175' text-anchor='middle' fill='%2394A3B8' font-size='14' font-family='sans-serif'>${label}</text><text x='200' y='198' text-anchor='middle' fill='%2364748B' font-size='12' font-family='sans-serif'>${sub}</text></svg>`;
 
-    const DEMO_PHOTOS = [
-      { id: 1, url: svgUrl("🚗","Sağ Ön Çamurluk","15.03.2024 · Kaza Sonrası","#EF4444"),   etiket: "Sağ Ön Çamurluk",        kategori: "kaza",      tarih: "15.03.2024", yukleyen: "Onarım Merkezi", boyut: "2.1 MB" },
-      { id: 2, url: svgUrl("💥","Ön Tampon","15.03.2024 · Kaza Sonrası","#F59E0B"),          etiket: "Ön Tampon",               kategori: "kaza",      tarih: "15.03.2024", yukleyen: "Onarım Merkezi", boyut: "1.8 MB" },
-      { id: 3, url: svgUrl("🔦","Sağ Far Grubu","15.03.2024 · Kaza Sonrası","#EF4444"),      etiket: "Sağ Far Grubu",           kategori: "kaza",      tarih: "15.03.2024", yukleyen: "Onarım Merkezi", boyut: "2.4 MB" },
-      { id: 4, url: svgUrl("🔍","Ekspertiz – Genel","17.03.2024 · Eksper İncelemesi","#10B981"), etiket: "Ekspertiz – Genel Görünüm", kategori: "ekspertiz", tarih: "17.03.2024", yukleyen: "Eksper",         boyut: "3.2 MB" },
-    ];
+const DEMO_PHOTOS = [
+  { id:1, url:svgUrl("🚗","Sağ Ön Çamurluk","15.03.2024 · Kaza","#EF4444"),   etiket:"Sağ Ön Çamurluk",  kategori:"kaza",      tarih:"15.03.2024", yukleyen:"Onarım Merkezi", boyut:"2.1 MB" },
+  { id:2, url:svgUrl("💥","Ön Tampon","15.03.2024 · Kaza","#F59E0B"),          etiket:"Ön Tampon",         kategori:"kaza",      tarih:"15.03.2024", yukleyen:"Onarım Merkezi", boyut:"1.8 MB" },
+  { id:3, url:svgUrl("🔦","Sağ Far","15.03.2024 · Kaza","#EF4444"),            etiket:"Sağ Far Grubu",     kategori:"kaza",      tarih:"15.03.2024", yukleyen:"Onarım Merkezi", boyut:"2.4 MB" },
+  { id:4, url:svgUrl("🔍","Ekspertiz","17.03.2024 · Eksper","#10B981"),         etiket:"Ekspertiz Genel",   kategori:"ekspertiz", tarih:"17.03.2024", yukleyen:"Eksper",         boyut:"3.2 MB" },
+];
+const KATEGORILER = [
+  { id:"tumu",label:"Tümü",ikon:"🖼️" },{ id:"kaza",label:"Kaza",ikon:"💥" },
+  { id:"ekspertiz",label:"Ekspertiz",ikon:"🔍" },{ id:"onarim",label:"Onarım",ikon:"🔧" },{ id:"teslimat",label:"Teslimat",ikon:"✅" },
+];
 
-    const KATEGORILER = [
-      { id: "tumu",      label: "Tümü",       ikon: "🖼️" },
-      { id: "kaza",      label: "Kaza Anı",   ikon: "💥" },
-      { id: "ekspertiz", label: "Ekspertiz",  ikon: "🔍" },
-      { id: "onarim",    label: "Onarım",     ikon: "🔧" },
-      { id: "teslimat",  label: "Teslimat",   ikon: "✅" },
-    ];
-
-    const TC = {
-      "Araç Sahibi":     { renk: "#F59E0B", icon: "👤", bg: "rgba(245,158,11,0.1)" },
-      "Sigorta Şirketi": { renk: "#3B82F6", icon: "🏦", bg: "rgba(59,130,246,0.1)" },
-      "Onarım Merkezi":  { renk: "#8B5CF6", icon: "🔧", bg: "rgba(139,92,246,0.1)" },
-      "Eksper":          { renk: "#10B981", icon: "🔎", bg: "rgba(16,185,129,0.1)" },
-      "Danışman":        { renk: "#4F46E5", icon: "🛡️", bg: "rgba(79,70,229,0.1)" },
-    };
-
-    const ED = {
-      tamam:    { renk: "#10B981", icon: "✓", label: "Teslim" },
-      eksik:    { renk: "#EF4444", icon: "!", label: "Eksik" },
-      bekliyor: { renk: "#64748B", icon: "○", label: "Bekliyor" },
-    };
-
-    const TABS = [
-      { id: "ozet",      label: "Özet",      mIcon: "📋" },
-      { id: "taraflar",  label: "Taraflar",  mIcon: "👥" },
-      { id: "onarim",    label: "Onarım",    mIcon: "🔧" },
-      { id: "evrak",     label: "Evrak",     mIcon: "📄", badge: true },
-      { id: "fotolar",   label: "Fotoğraf",  mIcon: "📷", photoBadge: true },
-      { id: "iletisim",  label: "İletişim",  mIcon: "💬" },
-      { id: "sms",       label: "SMS",       mIcon: "📱", sms: true },
-    ];
-
-    // ─── KÜÇÜK BİLEŞENLER ───────────────────────────────────────────────────────
-    function Chip({ renk, children, sm }) {
-      return (
-        <span style={{ fontSize: sm ? 9 : 10, fontWeight: 700, padding: sm ? "2px 6px" : "2px 8px", borderRadius: 4, background: `${renk}18`, color: renk, border: `1px solid ${renk}30`, whiteSpace: "nowrap" }}>
-          {children}
-        </span>
-      );
-    }
-
-    function Card({ children, style = {} }) {
-      return (
-        <div style={{ background: "#161B26", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: 16, ...style }}>
-          {children}
-        </div>
-      );
-    }
-
-    function SecTitle({ children }) {
-      return <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14 }}>{children}</div>;
-    }
-
-    function InfoRow({ label, value, mono, color }) {
-      return (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-          <span style={{ fontSize: 12, color: "#64748B", flexShrink: 0, marginRight: 12 }}>{label}</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: color || "#CBD5E1", fontFamily: mono ? "'JetBrains Mono',monospace" : "inherit", textAlign: "right" }}>{value}</span>
-        </div>
-      );
-    }
-
-    function TarafKart({ baslik, kisi, firma, telefon, email, ekstra, conf }) {
-      return (
-        <div style={{ background: conf.bg, border: `1px solid ${conf.renk}25`, borderRadius: 12, padding: 16, position: "relative" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-            <span style={{ fontSize: 18 }}>{conf.icon}</span>
-            <span style={{ fontSize: 10, fontWeight: 800, color: conf.renk, letterSpacing: "0.6px" }}>{baslik.toUpperCase()}</span>
+// ─── YARDIMCI BİLEŞENLER ────────────────────────────────────────────────────
+function Chip({ renk, children, sm }) {
+  return <span style={{ fontSize:sm?9:10, fontWeight:700, padding:sm?"2px 6px":"2px 8px", borderRadius:4, background:`${renk}18`, color:renk, border:`1px solid ${renk}30`, whiteSpace:"nowrap" }}>{children}</span>;
+}
+function Card({ children, style={} }) {
+  return <div style={{ background:"#161B26", border:"1px solid rgba(255,255,255,0.06)", borderRadius:12, padding:16, ...style }}>{children}</div>;
+}
+function SecTitle({ children }) { return <div style={{ fontWeight:700, fontSize:13, marginBottom:14 }}>{children}</div>; }
+function InfoRow({ label, value, mono, color }) {
+  return (
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:"1px solid rgba(255,255,255,0.04)" }}>
+      <span style={{ fontSize:12, color:"#64748B", flexShrink:0, marginRight:12 }}>{label}</span>
+      <span style={{ fontSize:12, fontWeight:600, color:color||"#CBD5E1", fontFamily:mono?"'JetBrains Mono',monospace":"inherit", textAlign:"right" }}>{value}</span>
+    </div>
+  );
+}
+function OnarimTimeline({ adimlar }) {
+  return (
+    <div>{adimlar.map((a,i)=>(
+      <div key={a.id} style={{ display:"flex", gap:12 }}>
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center" }}>
+          <div style={{ width:24,height:24,borderRadius:"50%",flexShrink:0, background:a.durum==="tamamlandi"?"#10B981":a.durum==="aktif"?"rgba(79,70,229,0.25)":"rgba(255,255,255,0.04)", border:a.durum==="aktif"?"2px solid #4F46E5":a.durum==="bekliyor"?"2px solid rgba(255,255,255,0.08)":"none", display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:800,color:"#fff" }}>
+            {a.durum==="tamamlandi"?"✓":a.durum==="aktif"?<div style={{width:7,height:7,borderRadius:"50%",background:"#4F46E5"}}/>:<div style={{width:5,height:5,borderRadius:"50%",background:"#334155"}}/>}
           </div>
-          {firma && <div style={{ fontSize: 11, color: "#64748B", marginBottom: 2 }}>{firma}</div>}
-          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>{kisi}</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            <a href={`tel:${telefon}`} style={{ fontSize: 12, color: "#94A3B8", textDecoration: "none" }}>📞 {telefon}</a>
-            <div style={{ fontSize: 12, color: "#94A3B8", wordBreak: "break-all" }}>✉️ {email}</div>
-            {ekstra && <div style={{ fontSize: 11, color: "#64748B", paddingTop: 8, marginTop: 4, borderTop: `1px solid ${conf.renk}15`, lineHeight: 1.6 }}>{ekstra}</div>}
-          </div>
-          <a href={`tel:${telefon}`} style={{ display: "inline-block", marginTop: 12, background: `${conf.renk}18`, border: `1px solid ${conf.renk}30`, color: conf.renk, borderRadius: 7, padding: "6px 12px", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>📞 Ara</a>
+          {i<adimlar.length-1&&<div style={{width:2,flex:1,minHeight:20,background:a.durum==="tamamlandi"?"#10B98125":"rgba(255,255,255,0.04)"}}/>}
         </div>
-      );
-    }
+        <div style={{ paddingBottom:16, flex:1, paddingTop:2 }}>
+          <div style={{ display:"flex",justifyContent:"space-between",gap:8,marginBottom:2 }}>
+            <span style={{ fontSize:13,fontWeight:a.durum==="aktif"?700:500,color:a.durum==="bekliyor"?"#475569":a.durum==="aktif"?"#818CF8":"#E2E8F0" }}>{a.ad}</span>
+            {a.tarih&&<span style={{ fontSize:10,color:"#64748B",fontFamily:"'JetBrains Mono',monospace",flexShrink:0 }}>{a.tarih}</span>}
+          </div>
+          {a.not&&<div style={{ fontSize:11,color:"#64748B",lineHeight:1.5 }}>{a.not}</div>}
+        </div>
+      </div>
+    ))}</div>
+  );
+}
+function TarafKart({ baslik, kisi, firma, telefon, email, ekstra, conf }) {
+  return (
+    <div style={{ background:conf.bg, border:`1px solid ${conf.renk}25`, borderRadius:12, padding:16 }}>
+      <div style={{ display:"flex",alignItems:"center",gap:8,marginBottom:10 }}>
+        <span style={{ fontSize:18 }}>{conf.icon}</span>
+        <span style={{ fontSize:10,fontWeight:800,color:conf.renk,letterSpacing:"0.6px" }}>{baslik.toUpperCase()}</span>
+      </div>
+      {firma&&<div style={{ fontSize:11,color:"#64748B",marginBottom:2 }}>{firma}</div>}
+      <div style={{ fontWeight:700,fontSize:13,marginBottom:10 }}>{kisi}</div>
+      <div style={{ display:"flex",flexDirection:"column",gap:5 }}>
+        <a href={`tel:${telefon}`} style={{ fontSize:12,color:"#94A3B8",textDecoration:"none" }}>📞 {telefon}</a>
+        <div style={{ fontSize:12,color:"#94A3B8",wordBreak:"break-all" }}>✉️ {email}</div>
+        {ekstra&&<div style={{ fontSize:11,color:"#64748B",paddingTop:8,marginTop:4,borderTop:`1px solid ${conf.renk}15`,lineHeight:1.6 }}>{ekstra}</div>}
+      </div>
+      <a href={`tel:${telefon}`} style={{ display:"inline-block",marginTop:12,background:`${conf.renk}18`,border:`1px solid ${conf.renk}30`,color:conf.renk,borderRadius:7,padding:"6px 12px",fontSize:11,fontWeight:700,textDecoration:"none" }}>📞 Ara</a>
+    </div>
+  );
+}
 
-    function OnarimTimeline({ adimlar }) {
-      return (
-        <div>
-          {adimlar.map((adim, i) => (
-            <div key={adim.id} style={{ display: "flex", gap: 12 }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <div style={{ width: 24, height: 24, borderRadius: "50%", flexShrink: 0, background: adim.durum === "tamamlandi" ? "#10B981" : adim.durum === "aktif" ? "rgba(79,70,229,0.25)" : "rgba(255,255,255,0.04)", border: adim.durum === "aktif" ? "2px solid #4F46E5" : adim.durum === "bekliyor" ? "2px solid rgba(255,255,255,0.08)" : "none", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#fff" }}>
-                  {adim.durum === "tamamlandi" ? "✓" : adim.durum === "aktif" ? <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4F46E5" }} /> : <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#334155" }} />}
-                </div>
-                {i < adimlar.length - 1 && <div style={{ width: 2, flex: 1, minHeight: 20, background: adim.durum === "tamamlandi" ? "#10B98125" : "rgba(255,255,255,0.04)" }} />}
+function DropZone({ onUpload, isMobile }) {
+  const [dragging, setDragging] = useState(false);
+  const ref = useRef();
+  const handleFiles = (files) => {
+    Array.from(files).filter(f=>f.type.startsWith("image/")).forEach(file=>{
+      const r = new FileReader();
+      r.onload = e => onUpload({ id:Date.now()+Math.random(), url:e.target.result, etiket:file.name.replace(/\.[^.]+$/,""), kategori:"kaza", tarih:new Date().toLocaleDateString("tr-TR"), yukleyen:"Danışman", boyut:(file.size/1048576).toFixed(1)+" MB" });
+      r.readAsDataURL(file);
+    });
+  };
+  return (
+    <div onClick={()=>ref.current?.click()} onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);handleFiles(e.dataTransfer.files);}} style={{ border:`2px dashed ${dragging?"#4F46E5":"rgba(79,70,229,0.3)"}`, borderRadius:12, padding:isMobile?"24px 16px":"32px 24px", textAlign:"center", cursor:"pointer", background:dragging?"rgba(79,70,229,0.08)":"rgba(79,70,229,0.03)", transition:"all 0.2s" }}>
+      <input ref={ref} type="file" accept="image/*" multiple onChange={e=>handleFiles(e.target.files)} style={{ display:"none" }}/>
+      <div style={{ fontSize:isMobile?36:44, marginBottom:10 }}>📷</div>
+      <div style={{ fontWeight:700, fontSize:14, color:"#818CF8", marginBottom:6 }}>{isMobile?"Fotoğraf Ekle":"Fotoğraf sürükleyin veya tıklayın"}</div>
+      <div style={{ fontSize:11, color:"#475569", marginBottom:14 }}>JPG, PNG, WEBP · Birden fazla seçilebilir</div>
+      <button onClick={e=>{e.stopPropagation();ref.current?.click();}} style={{ background:"#4F46E5",border:"none",color:"#fff",borderRadius:9,padding:"10px 24px",fontSize:13,fontWeight:700 }}>📷 Seç</button>
+    </div>
+  );
+}
+
+function Lightbox({ foto, onClose, onPrev, onNext, hasPrev, hasNext }) {
+  useEffect(()=>{
+    const h=e=>{if(e.key==="Escape")onClose();if(e.key==="ArrowLeft"&&hasPrev)onPrev();if(e.key==="ArrowRight"&&hasNext)onNext();};
+    window.addEventListener("keydown",h); return ()=>window.removeEventListener("keydown",h);
+  },[hasPrev,hasNext]);
+  return (
+    <div onClick={onClose} style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.92)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:16 }}>
+      <div onClick={e=>e.stopPropagation()} style={{ position:"relative",maxWidth:900,width:"100%",display:"flex",flexDirection:"column",gap:12 }}>
+        <button onClick={onClose} style={{ position:"absolute",top:-44,right:0,background:"rgba(255,255,255,0.1)",border:"1px solid rgba(255,255,255,0.15)",color:"#fff",borderRadius:"50%",width:34,height:34,fontSize:20,display:"flex",alignItems:"center",justifyContent:"center" }}>×</button>
+        <div style={{ position:"relative",borderRadius:12,overflow:"hidden",background:"#0D1117" }}>
+          <img src={foto.url} alt={foto.etiket} style={{ width:"100%",maxHeight:"70vh",objectFit:"contain",display:"block" }}/>
+          {hasPrev&&<button onClick={onPrev} style={{ position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,0.6)",border:"1px solid rgba(255,255,255,0.15)",color:"#fff",borderRadius:"50%",width:40,height:40,fontSize:22,display:"flex",alignItems:"center",justifyContent:"center" }}>‹</button>}
+          {hasNext&&<button onClick={onNext} style={{ position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"rgba(0,0,0,0.6)",border:"1px solid rgba(255,255,255,0.15)",color:"#fff",borderRadius:"50%",width:40,height:40,fontSize:22,display:"flex",alignItems:"center",justifyContent:"center" }}>›</button>}
+        </div>
+        <div style={{ background:"#161B26",border:"1px solid rgba(255,255,255,0.08)",borderRadius:10,padding:"12px 16px",display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:8 }}>
+          <div><div style={{ fontWeight:700,fontSize:14 }}>{foto.etiket}</div><div style={{ fontSize:12,color:"#64748B",marginTop:2 }}>{foto.tarih} · {foto.yukleyen} · {foto.boyut}</div></div>
+          <a href={foto.url} download={`${foto.etiket}.jpg`} style={{ background:"rgba(79,70,229,0.15)",border:"1px solid rgba(79,70,229,0.3)",color:"#818CF8",borderRadius:6,padding:"5px 13px",fontSize:11,fontWeight:700,textDecoration:"none" }}>⬇ İndir</a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// GİRİŞ EKRANLARI
+// ════════════════════════════════════════════════════════════════
+
+function RolSecim({ onRol }) {
+  return (
+    <div style={{ minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"#0D1117" }}>
+      <div style={{ width:"100%",maxWidth:420,animation:"popIn 0.3s ease" }}>
+        <div style={{ textAlign:"center",marginBottom:40 }}>
+          <div style={{ width:60,height:60,borderRadius:16,background:"linear-gradient(135deg,#1E40AF,#4F46E5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,margin:"0 auto 16px" }}>🛡️</div>
+          <div style={{ fontWeight:800,fontSize:24,letterSpacing:"-0.5px" }}>HasarTrack</div>
+          <div style={{ fontSize:14,color:"#64748B",marginTop:6 }}>Hasar Takip & Yönetim Platformu</div>
+        </div>
+        <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
+          {[
+            { rol:"danisman", ikon:"🛡️", baslik:"Hasar Danışmanı",   aciklama:"Tüm dosyalara tam erişim",               renk:"#4F46E5" },
+            { rol:"acente",   ikon:"🏢", baslik:"Sigorta Acentesi",   aciklama:"Süreç takibi, finansal detaylar hariç",  renk:"#3B82F6" },
+            { rol:"musteri",  ikon:"👤", baslik:"Sigortalı / Araç Sahibi", aciklama:"Aracınızın güncel durumunu görün",  renk:"#F59E0B" },
+          ].map(r => (
+            <button key={r.rol} onClick={() => onRol(r.rol)} style={{ background:"#161B26",border:`1px solid ${r.renk}30`,borderRadius:14,padding:"18px 20px",display:"flex",alignItems:"center",gap:16,cursor:"pointer",transition:"all 0.2s",textAlign:"left" }}>
+              <div style={{ width:48,height:48,borderRadius:12,background:`${r.renk}18`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0 }}>{r.ikon}</div>
+              <div>
+                <div style={{ fontWeight:700,fontSize:15,color:"#E2E8F0" }}>{r.baslik}</div>
+                <div style={{ fontSize:12,color:"#64748B",marginTop:3 }}>{r.aciklama}</div>
               </div>
-              <div style={{ paddingBottom: 16, flex: 1, paddingTop: 2 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, marginBottom: 2 }}>
-                  <span style={{ fontSize: 13, fontWeight: adim.durum === "aktif" ? 700 : 500, color: adim.durum === "bekliyor" ? "#475569" : adim.durum === "aktif" ? "#818CF8" : "#E2E8F0" }}>{adim.ad}</span>
-                  {adim.tarih && <span style={{ fontSize: 10, color: "#64748B", fontFamily: "'JetBrains Mono',monospace", flexShrink: 0 }}>{adim.tarih}</span>}
-                </div>
-                {adim.not && <div style={{ fontSize: 11, color: "#64748B", lineHeight: 1.5 }}>{adim.not}</div>}
+              <div style={{ marginLeft:"auto",color:`${r.renk}`,fontSize:20,flexShrink:0 }}>›</div>
+            </button>
+          ))}
+        </div>
+        <div style={{ textAlign:"center",marginTop:24,fontSize:11,color:"#334155" }}>Demo sistem · Gerçek veriler kullanılmaz</div>
+      </div>
+    </div>
+  );
+}
+
+function DanismanGiris({ onGiris, onGeri }) {
+  const [yukleniyor, setYukleniyor] = useState(false);
+  const giris = () => { setYukleniyor(true); setTimeout(()=>{ setYukleniyor(false); onGiris(); },600); };
+  return (
+    <div style={{ minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"#0D1117" }}>
+      <div style={{ width:"100%",maxWidth:380,animation:"popIn 0.3s ease" }}>
+        <button onClick={onGeri} style={{ background:"none",border:"none",color:"#64748B",fontSize:13,cursor:"pointer",marginBottom:24,display:"flex",alignItems:"center",gap:6 }}>← Geri</button>
+        <div style={{ textAlign:"center",marginBottom:32 }}>
+          <div style={{ width:64,height:64,borderRadius:16,background:"linear-gradient(135deg,#1E40AF,#4F46E5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:30,margin:"0 auto 16px",boxShadow:"0 0 32px rgba(79,70,229,0.35)" }}>🛡️</div>
+          <div style={{ fontWeight:800,fontSize:22,marginBottom:6 }}>Hasar Danışmanı</div>
+          <div style={{ fontSize:13,color:"#64748B" }}>Admin paneline erişmek için onaylayın</div>
+        </div>
+        <div style={{ background:"rgba(79,70,229,0.07)",border:"1px solid rgba(79,70,229,0.2)",borderRadius:14,padding:"20px",marginBottom:20 }}>
+          <div style={{ display:"flex",alignItems:"center",gap:12,marginBottom:14 }}>
+            <div style={{ width:40,height:40,borderRadius:10,background:"rgba(79,70,229,0.2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>🛡️</div>
+            <div><div style={{ fontWeight:700,fontSize:14 }}>Danışman Hesabı</div><div style={{ fontSize:12,color:"#64748B" }}>Tam yetkili erişim</div></div>
+          </div>
+          <div style={{ display:"flex",flexDirection:"column",gap:8 }}>
+            {["Tüm hasar dosyaları","Evrak yönetimi","Fotoğraf yükleme","SMS bildirimleri","Taraf iletişimi"].map(y=>(
+              <div key={y} style={{ display:"flex",alignItems:"center",gap:8,fontSize:12,color:"#94A3B8" }}>
+                <div style={{ width:6,height:6,borderRadius:"50%",background:"#4F46E5",flexShrink:0 }}/>
+                {y}
               </div>
+            ))}
+          </div>
+        </div>
+        <button onClick={giris} disabled={yukleniyor} style={{ width:"100%",background:"#4F46E5",border:"none",color:"#fff",borderRadius:12,padding:"15px",fontSize:15,fontWeight:800,cursor:"pointer" }}>
+          {yukleniyor?<span style={{ animation:"pulse 0.8s infinite" }}>Yükleniyor...</span>:"Panele Giriş Yap →"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AcenteGiris({ onGiris, onGeri }) {
+  const [kadi, setKadi] = useState("");
+  const [sifre, setSifre] = useState("");
+  const [hata, setHata] = useState(false);
+  const [yukleniyor, setYukleniyor] = useState(false);
+
+  const giris = () => {
+    setYukleniyor(true); setHata(false);
+    setTimeout(() => {
+      setYukleniyor(false);
+      if (kadi === "acente" && sifre === "acente2024") onGiris();
+      else { setHata(true); setSifre(""); }
+    }, 800);
+  };
+
+  return (
+    <div style={{ minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"#0D1117" }}>
+      <div style={{ width:"100%",maxWidth:380,animation:"popIn 0.3s ease" }}>
+        <button onClick={onGeri} style={{ background:"none",border:"none",color:"#64748B",fontSize:13,cursor:"pointer",marginBottom:24,display:"flex",alignItems:"center",gap:6 }}>← Geri</button>
+        <div style={{ textAlign:"center",marginBottom:32 }}>
+          <div style={{ width:56,height:56,borderRadius:14,background:"rgba(59,130,246,0.12)",border:"1px solid rgba(59,130,246,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,margin:"0 auto 14px" }}>🏢</div>
+          <div style={{ fontWeight:800,fontSize:20 }}>Sigorta Acentesi Girişi</div>
+          <div style={{ fontSize:13,color:"#64748B",marginTop:6 }}>Acente kullanıcı adı ve şifrenizle girin</div>
+        </div>
+        <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
+          <div>
+            <div style={{ fontSize:11,color:"#64748B",fontWeight:600,marginBottom:6 }}>KULLANICI ADI</div>
+            <input type="text" value={kadi} onChange={e=>setKadi(e.target.value)} onKeyDown={e=>e.key==="Enter"&&giris()} placeholder="Kullanıcı adı" style={{ width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:10,color:"#E2E8F0",padding:"12px 14px",fontSize:14 }}/>
+          </div>
+          <div>
+            <div style={{ fontSize:11,color:"#64748B",fontWeight:600,marginBottom:6 }}>ŞİFRE</div>
+            <input type="password" value={sifre} onChange={e=>setSifre(e.target.value)} onKeyDown={e=>e.key==="Enter"&&giris()} placeholder="Şifrenizi girin" style={{ width:"100%",background:hata?"rgba(239,68,68,0.08)":"rgba(255,255,255,0.05)",border:`1px solid ${hata?"rgba(239,68,68,0.5)":"rgba(255,255,255,0.1)"}`,borderRadius:10,color:"#E2E8F0",padding:"12px 14px",fontSize:14,animation:hata?"shake 0.3s ease":"none" }}/>
+            {hata&&<div style={{ fontSize:11,color:"#EF4444",marginTop:6 }}>⚠ Kullanıcı adı veya şifre hatalı.</div>}
+          </div>
+          <button onClick={giris} disabled={yukleniyor} style={{ background:"#3B82F6",border:"none",color:"#fff",borderRadius:10,padding:"14px",fontSize:14,fontWeight:700,marginTop:4 }}>
+            {yukleniyor?<span style={{ animation:"pulse 0.8s infinite" }}>Giriş yapılıyor...</span>:"Giriş Yap →"}
+          </button>
+        </div>
+        <div style={{ marginTop:20,padding:"12px 14px",background:"rgba(59,130,246,0.08)",border:"1px solid rgba(59,130,246,0.2)",borderRadius:8,fontSize:11,color:"#60A5FA" }}>
+          💡 Demo: Kullanıcı adı: <strong>acente</strong> · Şifre: <strong>acente2024</strong>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MusteriGiris({ onGiris, onGeri }) {
+  const [adim, setAdim] = useState("tc"); // "tc" | "sms"
+  const [tc, setTc] = useState("");
+  const [smsKod, setSmsKod] = useState("");
+  const [hata, setHata] = useState("");
+  const [yukleniyor, setYukleniyor] = useState(false);
+  const [gonderildi, setGonderildi] = useState(false);
+  const [sayac, setSayac] = useState(0);
+
+  useEffect(()=>{
+    if (sayac > 0) { const t = setTimeout(()=>setSayac(s=>s-1),1000); return ()=>clearTimeout(t); }
+  },[sayac]);
+
+  const tcGonder = () => {
+    if (tc.replace(/\s/g,"").length < 11) { setHata("TC kimlik numarası 11 haneli olmalıdır."); return; }
+    if (tc.replace(/\s/g,"") !== DOSYA.sahip.tc.replace(/\s/g,"")) { setHata("Bu TC kimlik numarasına ait kayıt bulunamadı."); return; }
+    setYukleniyor(true); setHata("");
+    setTimeout(()=>{ setYukleniyor(false); setAdim("sms"); setGonderildi(true); setSayac(60); },1000);
+  };
+
+  const smsDogrula = () => {
+    if (smsKod.length < 4) { setHata("Lütfen 4 haneli kodu girin."); return; }
+    setYukleniyor(true); setHata("");
+    setTimeout(()=>{
+      setYukleniyor(false);
+      if (smsKod === "1234") onGiris();
+      else { setHata("Kod hatalı. Demo kod: 1234"); setSmsKod(""); }
+    },800);
+  };
+
+  const telefMask = DOSYA.sahip.telefon.replace(/(\d{4})\s(\d{3})\s(\d{2})\s(\d{2})/, (m,a,b,c,d)=>`${a} *** ** ${d}`);
+
+  return (
+    <div style={{ minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",padding:24,background:"#0D1117" }}>
+      <div style={{ width:"100%",maxWidth:380,animation:"popIn 0.3s ease" }}>
+        <button onClick={onGeri} style={{ background:"none",border:"none",color:"#64748B",fontSize:13,cursor:"pointer",marginBottom:24,display:"flex",alignItems:"center",gap:6 }}>← Geri</button>
+        <div style={{ textAlign:"center",marginBottom:32 }}>
+          <div style={{ width:56,height:56,borderRadius:14,background:"rgba(245,158,11,0.12)",border:"1px solid rgba(245,158,11,0.3)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,margin:"0 auto 14px" }}>👤</div>
+          <div style={{ fontWeight:800,fontSize:20 }}>Sigortalı Girişi</div>
+          <div style={{ fontSize:13,color:"#64748B",marginTop:6 }}>Aracınızın durumunu görüntüleyin</div>
+        </div>
+
+        {/* Adım göstergesi */}
+        <div style={{ display:"flex",gap:8,marginBottom:28 }}>
+          {["TC Kimlik","SMS Doğrulama"].map((s,i)=>(
+            <div key={i} style={{ flex:1,textAlign:"center" }}>
+              <div style={{ height:3,borderRadius:2,background:(adim==="tc"&&i===0)||(adim==="sms"&&i<=1)?"#F59E0B":"rgba(255,255,255,0.1)",marginBottom:6 }}/>
+              <div style={{ fontSize:10,color:(adim==="tc"&&i===0)||(adim==="sms"&&i<=1)?"#F59E0B":"#475569",fontWeight:600 }}>{s}</div>
             </div>
           ))}
         </div>
-      );
-    }
 
-    // ─── LIGHTBOX ───────────────────────────────────────────────────────────────
-    function Lightbox({ foto, onClose, onPrev, onNext, hasPrev, hasNext }) {
-      useEffect(() => {
-        const h = (e) => {
-          if (e.key === "Escape") onClose();
-          if (e.key === "ArrowLeft" && hasPrev) onPrev();
-          if (e.key === "ArrowRight" && hasNext) onNext();
-        };
-        window.addEventListener("keydown", h);
-        return () => window.removeEventListener("keydown", h);
-      }, [hasPrev, hasNext]);
+        {adim === "tc" && (
+          <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
+            <div>
+              <div style={{ fontSize:11,color:"#64748B",fontWeight:600,marginBottom:6 }}>TC KİMLİK NUMARASI</div>
+              <input type="tel" value={tc} onChange={e=>setTc(e.target.value.replace(/\D/g,"").slice(0,11))} onKeyDown={e=>e.key==="Enter"&&tcGonder()} placeholder="12345678901" maxLength={11} style={{ width:"100%",background:"rgba(255,255,255,0.05)",border:`1px solid ${hata?"rgba(239,68,68,0.5)":"rgba(255,255,255,0.1)"}`,borderRadius:10,color:"#E2E8F0",padding:"12px 14px",fontSize:16,letterSpacing:"2px",fontFamily:"'JetBrains Mono',monospace" }}/>
+              {hata&&<div style={{ fontSize:11,color:"#EF4444",marginTop:6 }}>⚠ {hata}</div>}
+            </div>
+            <button onClick={tcGonder} disabled={yukleniyor} style={{ background:"#F59E0B",border:"none",color:"#000",borderRadius:10,padding:"14px",fontSize:14,fontWeight:800,marginTop:4 }}>
+              {yukleniyor?<span style={{ animation:"pulse 0.8s infinite" }}>Gönderiliyor...</span>:"SMS Kodu Gönder →"}
+            </button>
+          </div>
+        )}
 
-      const kat = KATEGORILER.find(k => k.id === foto.kategori);
-      return (
-        <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-          <div onClick={e => e.stopPropagation()} style={{ position: "relative", maxWidth: 900, width: "100%", display: "flex", flexDirection: "column", gap: 12 }}>
-            <button onClick={onClose} style={{ position: "absolute", top: -44, right: 0, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", borderRadius: "50%", width: 34, height: 34, fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
-            <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", background: "#0D1117" }}>
-              <img src={foto.url} alt={foto.etiket} style={{ width: "100%", maxHeight: "70vh", objectFit: "contain", display: "block" }} />
-              {hasPrev && <button onClick={onPrev} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", borderRadius: "50%", width: 40, height: 40, fontSize: 22, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>‹</button>}
-              {hasNext && <button onClick={onNext} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.15)", color: "#fff", borderRadius: "50%", width: 40, height: 40, fontSize: 22, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>›</button>}
+        {adim === "sms" && (
+          <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
+            <div style={{ padding:"14px",background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:10,fontSize:13,color:"#94A3B8",lineHeight:1.6,textAlign:"center" }}>
+              📱 <strong style={{ color:"#F59E0B" }}>{telefMask}</strong> numaralı telefona SMS kodu gönderildi
             </div>
-            <div style={{ background: "#161B26", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{foto.etiket}</div>
-                <div style={{ fontSize: 12, color: "#64748B", marginTop: 2 }}>{foto.tarih} · {foto.yukleyen} · {foto.boyut}</div>
-              </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                {kat && <Chip renk="#64748B" sm>{kat.ikon} {kat.label}</Chip>}
-                <a href={foto.url} download={`${foto.etiket}.jpg`} style={{ background: "rgba(79,70,229,0.15)", border: "1px solid rgba(79,70,229,0.3)", color: "#818CF8", borderRadius: 6, padding: "5px 13px", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>⬇ İndir</a>
-              </div>
+            <div>
+              <div style={{ fontSize:11,color:"#64748B",fontWeight:600,marginBottom:6 }}>4 HANELİ KOD</div>
+              <input type="tel" value={smsKod} onChange={e=>setSmsKod(e.target.value.replace(/\D/g,"").slice(0,4))} onKeyDown={e=>e.key==="Enter"&&smsDogrula()} placeholder="· · · ·" maxLength={4} style={{ width:"100%",background:"rgba(255,255,255,0.05)",border:`1px solid ${hata?"rgba(239,68,68,0.5)":"rgba(255,255,255,0.1)"}`,borderRadius:10,color:"#E2E8F0",padding:"14px",fontSize:28,letterSpacing:"12px",textAlign:"center",fontFamily:"'JetBrains Mono',monospace" }}/>
+              {hata&&<div style={{ fontSize:11,color:"#EF4444",marginTop:6,textAlign:"center" }}>⚠ {hata}</div>}
             </div>
+            <button onClick={smsDogrula} disabled={yukleniyor||smsKod.length<4} style={{ background:smsKod.length===4?"#F59E0B":"rgba(245,158,11,0.3)",border:"none",color:smsKod.length===4?"#000":"#64748B",borderRadius:10,padding:"14px",fontSize:14,fontWeight:800 }}>
+              {yukleniyor?<span style={{ animation:"pulse 0.8s infinite" }}>Doğrulanıyor...</span>:"Giriş Yap →"}
+            </button>
+            <div style={{ textAlign:"center",fontSize:12,color:"#475569" }}>
+              {sayac>0?<span>Kod yeniden göndermek için <strong style={{ color:"#F59E0B" }}>{sayac}s</strong> bekleyin</span>:<button onClick={()=>{setSayac(60);}} style={{ background:"none",border:"none",color:"#F59E0B",fontSize:12,cursor:"pointer",textDecoration:"underline" }}>Kodu tekrar gönder</button>}
+            </div>
+          </div>
+        )}
+
+        <div style={{ marginTop:20,padding:"12px 14px",background:"rgba(245,158,11,0.08)",border:"1px solid rgba(245,158,11,0.2)",borderRadius:8,fontSize:11,color:"#F59E0B" }}>
+          💡 Demo TC: <strong>12345678901</strong> · SMS kodu: <strong>1234</strong>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// MÜŞTERİ PANELİ
+// ════════════════════════════════════════════════════════════════
+function MusteriPanel({ onCikis }) {
+  const aktifAdim = DOSYA.onarimAdimlari.find(a=>a.durum==="aktif");
+  const tamamlandi = DOSYA.onarimAdimlari.filter(a=>a.durum==="tamamlandi").length;
+  const oP = Math.round((tamamlandi/DOSYA.onarimAdimlari.length)*100);
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(()=>{ const c=()=>setIsMobile(window.innerWidth<768); c(); window.addEventListener("resize",c); return()=>window.removeEventListener("resize",c); },[]);
+
+  const ADIM_RENKLERI = { tamamlandi:"#10B981", aktif:"#4F46E5", bekliyor:"#334155" };
+
+  return (
+    <div style={{ fontFamily:"'Inter',sans-serif", background:"#0D1117", minHeight:"100vh", color:"#E2E8F0" }}>
+      {/* Header */}
+      <div style={{ background:"#111827", borderBottom:"1px solid rgba(255,255,255,0.07)", padding:`0 ${isMobile?12:24}px`, height:isMobile?52:56, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:50 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+          <div style={{ width:32,height:32,borderRadius:8,background:"linear-gradient(135deg,#92400E,#F59E0B)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16 }}>👤</div>
+          <div>
+            <div style={{ fontWeight:800,fontSize:14 }}>HasarTrack</div>
+            <div style={{ fontSize:10,color:"#475569" }}>Sigortalı Portalı</div>
           </div>
         </div>
-      );
-    }
-
-    // ─── DROP ZONE ──────────────────────────────────────────────────────────────
-    function DropZone({ onUpload, isMobile }) {
-      const [dragging, setDragging] = useState(false);
-      const inputRef = useRef();
-
-      const handleFiles = (files) => {
-        const valid = Array.from(files).filter(f => f.type.startsWith("image/"));
-        valid.forEach(file => {
-          const reader = new FileReader();
-          reader.onload = (e) => onUpload({
-            id: Date.now() + Math.random(),
-            url: e.target.result,
-            etiket: file.name.replace(/\.[^.]+$/, ""),
-            kategori: "kaza",
-            tarih: new Date().toLocaleDateString("tr-TR"),
-            yukleyen: "Danışman",
-            boyut: (file.size / (1024 * 1024)).toFixed(1) + " MB",
-          });
-          reader.readAsDataURL(file);
-        });
-      };
-
-      return (
-        <div
-          onClick={() => inputRef.current?.click()}
-          onDragOver={e => { e.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={e => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files); }}
-          style={{ border: `2px dashed ${dragging ? "#4F46E5" : "rgba(79,70,229,0.3)"}`, borderRadius: 12, padding: isMobile ? "24px 16px" : "32px 24px", textAlign: "center", cursor: "pointer", background: dragging ? "rgba(79,70,229,0.08)" : "rgba(79,70,229,0.03)", transition: "all 0.2s" }}
-        >
-          <input ref={inputRef} type="file" accept="image/*" multiple onChange={e => handleFiles(e.target.files)} style={{ display: "none" }} />
-          <div style={{ fontSize: isMobile ? 36 : 44, marginBottom: 10 }}>📷</div>
-          <div style={{ fontWeight: 700, fontSize: isMobile ? 13 : 14, color: "#818CF8", marginBottom: 6 }}>
-            {isMobile ? "Fotoğraf Ekle" : "Fotoğraf sürükleyin veya tıklayın"}
-          </div>
-          <div style={{ fontSize: 11, color: "#475569" }}>
-            {isMobile ? "Galeriden seçin veya kamerayla çekin" : "JPG, PNG, WEBP · Birden fazla seçilebilir"}
-          </div>
-          <button
-            onClick={e => { e.stopPropagation(); inputRef.current?.click(); }}
-            style={{ marginTop: 14, background: "#4F46E5", border: "none", color: "#fff", borderRadius: 9, padding: "10px 24px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-          >
-            📷 Fotoğraf Seç
-          </button>
+        <div style={{ display:"flex",alignItems:"center",gap:10 }}>
+          <div style={{ fontSize:12,color:"#64748B",display:isMobile?"none":"block" }}>{DOSYA.sahip.ad}</div>
+          <button onClick={onCikis} style={{ background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.2)",color:"#EF4444",borderRadius:7,padding:"5px 12px",fontSize:11,fontWeight:700 }}>Çıkış</button>
         </div>
-      );
-    }
+      </div>
 
-    // ─── ANA PANEL ──────────────────────────────────────────────────────────────
-    function Panel() {
-      const [tab, setTab] = useState("ozet");
-      const [hedef, setHedef] = useState("Eksper");
-      const [mesajMetin, setMesajMetin] = useState("");
-      const [mesajlar, setMesajlar] = useState(DOSYA.mesajlar);
-      const [isMobile, setIsMobile] = useState(false);
+      <div style={{ padding:isMobile?"12px":"24px",maxWidth:640,margin:"0 auto",display:"flex",flexDirection:"column",gap:16 }}>
 
-      const [photos, setPhotos] = useState(DEMO_PHOTOS);
-      const [aktifKategori, setAktifKategori] = useState("tumu");
-      const [lightboxFoto, setLightboxFoto] = useState(null);
-      const [silOnayi, setSilOnayi] = useState(null);
-      const [etiketDuzenle, setEtiketDuzenle] = useState(null);
-      const [yeniEtiket, setYeniEtiket] = useState("");
+        {/* Hoşgeldin */}
+        <div style={{ background:"linear-gradient(135deg,rgba(245,158,11,0.1),rgba(245,158,11,0.03))", border:"1px solid rgba(245,158,11,0.2)", borderRadius:16, padding:"20px 20px" }}>
+          <div style={{ fontSize:11,color:"#F59E0B",fontWeight:700,letterSpacing:"0.5px",marginBottom:6 }}>HOŞ GELDİNİZ</div>
+          <div style={{ fontWeight:800,fontSize:isMobile?18:22,marginBottom:4 }}>Merhaba, {DOSYA.sahip.ad.split(" ")[0]} Bey 👋</div>
+          <div style={{ fontSize:13,color:"#94A3B8",marginBottom:14 }}>Aracınızın hasar dosyası aktif olarak takip edilmektedir.</div>
+          <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
+            <Chip renk="#F59E0B">{DOSYA.arac.plaka}</Chip>
+            <Chip renk="#64748B">{DOSYA.id}</Chip>
+            <Chip renk="#10B981">● Aktif</Chip>
+          </div>
+        </div>
 
-      const [smsAktif, setSmsAktif] = useState(true);
-      const [smsSaati, setSmsSaati] = useState("10:00");
-      const [smsModu, setSmsModu] = useState("otomatik");
-      const [ozelMesaj, setOzelMesaj] = useState("");
-      const [duzenlemAcik, setDuzenlemeAcik] = useState(false);
-      const [duzenlenMetin, setDuzenlenMetin] = useState("");
-      const [smsMesajlar, setSmsMesajlar] = useState(GECMIS_SMS);
-      const [smsGonderiliyor, setSmsGonderiliyor] = useState(false);
-      const [smsGonderildi, setSmsGonderildi] = useState(false);
-
-      useEffect(() => {
-        const check = () => setIsMobile(window.innerWidth < 768);
-        check();
-        window.addEventListener("resize", check);
-        return () => window.removeEventListener("resize", check);
-      }, []);
-
-      const eksik = DOSYA.evrakAdimlari.filter(e => e.durum === "eksik");
-      const tamamSay = DOSYA.evrakAdimlari.filter(e => e.durum === "tamam").length;
-      const oP = Math.round((DOSYA.onarimAdimlari.filter(a => a.durum === "tamamlandi").length / DOSYA.onarimAdimlari.length) * 100);
-      const eP = Math.round((tamamSay / DOSYA.evrakAdimlari.length) * 100);
-      const aktifAdim = DOSYA.onarimAdimlari.find(a => a.durum === "aktif")?.ad || "Teklif / Onay";
-      const otomatikMesaj = SMS_SABLONLARI[aktifAdim]?.mesaj(DOSYA) || "";
-      const onizlemeMesaji = smsModu === "ozel" ? ozelMesaj : (duzenlemAcik ? duzenlenMetin : otomatikMesaj);
-
-      const filtreliPhotos = aktifKategori === "tumu" ? photos : photos.filter(p => p.kategori === aktifKategori);
-      const lbIdx = lightboxFoto ? filtreliPhotos.findIndex(p => p.id === lightboxFoto.id) : -1;
-
-      const handleUpload = (np) => {
-        setPhotos(p => [{ ...np, yukleniyor: true }, ...p]);
-        setTimeout(() => setPhotos(p => p.map(ph => ph.id === np.id ? { ...ph, yukleniyor: false } : ph)), 1200);
-      };
-
-      const silFoto = (id) => { setPhotos(p => p.filter(ph => ph.id !== id)); setSilOnayi(null); if (lightboxFoto?.id === id) setLightboxFoto(null); };
-      const etiketKaydet = (id) => { setPhotos(p => p.map(ph => ph.id === id ? { ...ph, etiket: yeniEtiket } : ph)); setEtiketDuzenle(null); };
-      const kategoriDegistir = (id, kat) => setPhotos(p => p.map(ph => ph.id === id ? { ...ph, kategori: kat } : ph));
-
-      const gonder = () => {
-        if (!mesajMetin.trim()) return;
-        setMesajlar(p => [...p, { id: p.length + 1, gonderen: "Danışman", hedef, tarih: "Şimdi", mesaj: mesajMetin.trim() }]);
-        setMesajMetin("");
-      };
-
-      const smsGonder = () => {
-        setSmsGonderiliyor(true);
-        setTimeout(() => {
-          setSmsGonderiliyor(false); setSmsGonderildi(true);
-          setSmsMesajlar(p => [{ id: p.length + 1, tarih: new Date().toLocaleDateString("tr-TR"), saat: new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }), durum: "iletildi", sablon: aktifAdim, alici: DOSYA.sahip.telefon, n: onizlemeMesaji.length }, ...p]);
-          setTimeout(() => setSmsGonderildi(false), 3000);
-        }, 1800);
-      };
-
-      const P = isMobile ? 12 : 24;
-
-      // ── RENDER ──
-      return (
-        <div style={{ fontFamily: "'Inter','Segoe UI',sans-serif", background: "#0D1117", minHeight: "100vh", color: "#E2E8F0", display: "flex", flexDirection: "column", paddingBottom: isMobile ? 68 : 0 }}>
-
-          {/* HEADER */}
-          <div style={{ background: "#111827", borderBottom: "1px solid rgba(255,255,255,0.07)", padding: `0 ${P}px`, height: isMobile ? 52 : 56, display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, position: "sticky", top: 0, zIndex: 50 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16 }}>
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg,#1E40AF,#4F46E5)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>🛡️</div>
-              {!isMobile && <div><div style={{ fontWeight: 800, fontSize: 14 }}>HasarTrack</div><div style={{ fontSize: 10, color: "#475569" }}>Hasar Danışmanı Paneli</div></div>}
-              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: isMobile ? 12 : 13, fontWeight: 600, color: "#818CF8", background: "rgba(79,70,229,0.12)", padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(79,70,229,0.25)" }}>{DOSYA.id}</div>
-              {!isMobile && <Chip renk="#EF4444">⚡ Yüksek</Chip>}
-              {!isMobile && <Chip renk="#10B981">● Aktif</Chip>}
+        {/* Mevcut Durum */}
+        <Card style={{ background:"rgba(79,70,229,0.07)",border:"1px solid rgba(79,70,229,0.22)" }}>
+          <div style={{ fontSize:11,color:"#818CF8",fontWeight:800,letterSpacing:"0.8px",marginBottom:8 }}>⬤ MEVCUT DURUM</div>
+          <div style={{ fontWeight:800,fontSize:isMobile?18:22,marginBottom:6 }}>{aktifAdim?.ad}</div>
+          <div style={{ fontSize:13,color:"#94A3B8",lineHeight:1.6,marginBottom:16 }}>{aktifAdim?.not}</div>
+          <div style={{ marginBottom:8 }}>
+            <div style={{ display:"flex",justifyContent:"space-between",marginBottom:6 }}>
+              <span style={{ fontSize:12,color:"#64748B" }}>İlerleme</span>
+              <span style={{ fontSize:12,fontFamily:"'JetBrains Mono',monospace",color:"#818CF8" }}>%{oP}</span>
             </div>
-            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              {isMobile && eksik.length > 0 && <div style={{ background: "#EF4444", color: "#fff", borderRadius: "50%", width: 20, height: 20, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>{eksik.length}</div>}
-              {isMobile && smsAktif && <Chip renk="#4F46E5" sm>📱 {smsSaati}</Chip>}
-              {!isMobile && <Chip renk="#64748B">{DOSYA.acilisTarihi}</Chip>}
-              {!isMobile && <Chip renk="#64748B">📷 {photos.length} foto</Chip>}
-              {!isMobile && smsAktif && <Chip renk="#4F46E5">📱 SMS · {smsSaati}</Chip>}
+            <div style={{ height:8,background:"rgba(255,255,255,0.06)",borderRadius:4 }}>
+              <div style={{ height:"100%",width:`${oP}%`,borderRadius:4,background:"linear-gradient(90deg,#4F46E5,#7C3AED)",boxShadow:"0 0 8px rgba(79,70,229,0.4)" }}/>
             </div>
           </div>
+          <div style={{ fontSize:12,color:"#64748B" }}>{tamamlandi} / {DOSYA.onarimAdimlari.length} adım tamamlandı</div>
+        </Card>
 
-          {/* ARAÇ ŞERİDİ */}
-          <div style={{ background: "#111827", borderBottom: "1px solid rgba(255,255,255,0.05)", padding: `10px ${P}px`, display: "flex", gap: isMobile ? 8 : 24, alignItems: "center", flexShrink: 0, overflowX: "auto" }}>
-            {isMobile ? (
-              [{ icon: "🚗", v: `${DOSYA.arac.marka} ${DOSYA.arac.model}` }, { icon: "🔑", v: DOSYA.arac.plaka }, { icon: "💰", v: DOSYA.eksper.tahminiHasar, color: "#F59E0B" }, { icon: "📅", v: DOSYA.arac.kazaTarihi }].map((r, i) => (
-                <div key={i} style={{ flexShrink: 0, background: "rgba(255,255,255,0.04)", borderRadius: 7, padding: "6px 10px", display: "flex", gap: 6, alignItems: "center" }}>
-                  <span style={{ fontSize: 13 }}>{r.icon}</span>
-                  <span style={{ fontSize: 11, fontWeight: 600, color: r.color || "#CBD5E1", fontFamily: "'JetBrains Mono',monospace" }}>{r.v}</span>
+        {/* Adım listesi — sadece tamamlananlar ve aktif adım */}
+        <Card>
+          <SecTitle>📋 Süreç Adımları</SecTitle>
+          <div style={{ display:"flex",flexDirection:"column",gap:0 }}>
+            {DOSYA.onarimAdimlari.map((a,i)=>(
+              <div key={a.id} style={{ display:"flex",alignItems:"center",gap:12,padding:"10px 0",borderBottom:i<DOSYA.onarimAdimlari.length-1?"1px solid rgba(255,255,255,0.04)":"none", opacity:a.durum==="bekliyor"?0.4:1 }}>
+                <div style={{ width:28,height:28,borderRadius:"50%",flexShrink:0, background:a.durum==="tamamlandi"?"#10B981":a.durum==="aktif"?"rgba(79,70,229,0.25)":"rgba(255,255,255,0.04)", border:a.durum==="aktif"?"2px solid #4F46E5":"none", display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:800,color:"#fff" }}>
+                  {a.durum==="tamamlandi"?"✓":a.durum==="aktif"?"●":i+1}
                 </div>
-              ))
-            ) : (
-              [{ icon: "🚗", l: "Araç", v: `${DOSYA.arac.marka} ${DOSYA.arac.model} (${DOSYA.arac.yil})` }, { icon: "🔑", l: "Plaka", v: DOSYA.arac.plaka, mono: true }, { icon: "👤", l: "Sahip", v: DOSYA.sahip.ad }, { icon: "📞", l: "Telefon", v: DOSYA.sahip.telefon, mono: true }, { icon: "🏦", l: "Sigorta", v: DOSYA.sigortaSirketi.ad }, { icon: "💰", l: "Hasar", v: DOSYA.eksper.tahminiHasar, color: "#F59E0B" }, { icon: "📅", l: "Kaza", v: DOSYA.arac.kazaTarihi }].map(r => (
-                <div key={r.l} style={{ display: "flex", gap: 7, alignItems: "center", flexShrink: 0 }}>
-                  <span style={{ fontSize: 13 }}>{r.icon}</span>
-                  <div>
-                    <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: "0.5px" }}>{r.l.toUpperCase()}</div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: r.color || "#CBD5E1", fontFamily: r.mono ? "'JetBrains Mono',monospace" : "inherit" }}>{r.v}</div>
-                  </div>
-                </div>
-              ))
-            )}
+                <span style={{ flex:1,fontSize:13,fontWeight:a.durum==="aktif"?700:400, color:a.durum==="bekliyor"?"#475569":a.durum==="aktif"?"#818CF8":"#CBD5E1" }}>{a.ad}</span>
+                {a.durum==="aktif"&&<Chip renk="#4F46E5" sm>Şu an burada</Chip>}
+                {a.durum==="tamamlandi"&&<Chip renk="#10B981" sm>✓</Chip>}
+              </div>
+            ))}
           </div>
+        </Card>
 
-          {/* DESKTOP TABS */}
-          {!isMobile && (
-            <div style={{ background: "#111827", borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "0 24px", display: "flex", gap: 2, flexShrink: 0 }}>
-              {TABS.map(t => (
-                <button key={t.id} onClick={() => setTab(t.id)} style={{ padding: "13px 14px", background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 500, color: tab === t.id ? "#E2E8F0" : t.badge && eksik.length > 0 ? "#EF4444" : t.sms && smsAktif && tab !== t.id ? "#818CF8" : "#64748B", borderBottom: tab === t.id ? "2px solid #4F46E5" : "2px solid transparent", borderRadius: "4px 4px 0 0", marginBottom: -1, whiteSpace: "nowrap", position: "relative" }}>
-                  {t.mIcon} {t.label}
-                  {t.badge && eksik.length > 0 && <span style={{ position: "absolute", top: 8, right: 2, background: "#EF4444", color: "#fff", borderRadius: "50%", width: 14, height: 14, fontSize: 8, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{eksik.length}</span>}
-                  {t.photoBadge && photos.length > 0 && <span style={{ position: "absolute", top: 8, right: 2, background: "#3B82F6", color: "#fff", borderRadius: 4, padding: "0 4px", fontSize: 8, fontWeight: 800 }}>{photos.length}</span>}
-                </button>
+        <div style={{ textAlign:"center",fontSize:11,color:"#334155",paddingBottom:24 }}>
+          Hasar danışmanınız: <strong style={{ color:"#64748B" }}>HasarTrack · {DOSYA.id}</strong>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// SİGORTA ACENTESİ PANELİ
+// ════════════════════════════════════════════════════════════════
+function AcentePanel({ onCikis }) {
+  const [tab, setTab] = useState("ozet");
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(()=>{ const c=()=>setIsMobile(window.innerWidth<768); c(); window.addEventListener("resize",c); return()=>window.removeEventListener("resize",c); },[]);
+
+  const eksik = DOSYA.evrakAdimlari.filter(e=>e.durum==="eksik");
+  const tamamSay = DOSYA.evrakAdimlari.filter(e=>e.durum==="tamam").length;
+  const oP = Math.round((DOSYA.onarimAdimlari.filter(a=>a.durum==="tamamlandi").length/DOSYA.onarimAdimlari.length)*100);
+  const eP = Math.round((tamamSay/DOSYA.evrakAdimlari.length)*100);
+  const aktifAdim = DOSYA.onarimAdimlari.find(a=>a.durum==="aktif")?.ad||"Teklif / Onay";
+
+  const TABS = [
+    { id:"ozet",    label:"Özet",    icon:"📋" },
+    { id:"surecler",label:"Süreçler",icon:"🔧" },
+    { id:"evrak",   label:"Evrak",   icon:"📄", badge:true },
+    { id:"taraflar",label:"Taraflar",icon:"👥" },
+  ];
+
+  const P = isMobile ? 12 : 24;
+
+  return (
+    <div style={{ fontFamily:"'Inter',sans-serif",background:"#0D1117",minHeight:"100vh",color:"#E2E8F0",display:"flex",flexDirection:"column",paddingBottom:isMobile?64:0 }}>
+      {/* Header */}
+      <div style={{ background:"#111827",borderBottom:"1px solid rgba(255,255,255,0.07)",padding:`0 ${P}px`,height:isMobile?52:56,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50 }}>
+        <div style={{ display:"flex",alignItems:"center",gap:12 }}>
+          <div style={{ width:32,height:32,borderRadius:8,background:"linear-gradient(135deg,#1E3A8A,#3B82F6)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16 }}>🏢</div>
+          {!isMobile&&<div><div style={{ fontWeight:800,fontSize:14 }}>HasarTrack</div><div style={{ fontSize:10,color:"#475569" }}>Sigorta Acentesi Portalı</div></div>}
+          <div style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:isMobile?11:13,fontWeight:600,color:"#60A5FA",background:"rgba(59,130,246,0.12)",padding:"3px 10px",borderRadius:6,border:"1px solid rgba(59,130,246,0.25)" }}>{DOSYA.id}</div>
+          {!isMobile&&<Chip renk="#10B981">● Aktif</Chip>}
+        </div>
+        <div style={{ display:"flex",gap:8,alignItems:"center" }}>
+          {isMobile&&eksik.length>0&&<div style={{ background:"#EF4444",color:"#fff",borderRadius:"50%",width:20,height:20,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800 }}>{eksik.length}</div>}
+          {!isMobile&&<span style={{ fontSize:12,color:"#64748B" }}>AXA Sigorta A.Ş.</span>}
+          <button onClick={onCikis} style={{ background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.2)",color:"#EF4444",borderRadius:7,padding:"5px 12px",fontSize:11,fontWeight:700 }}>Çıkış</button>
+        </div>
+      </div>
+
+      {/* Araç şeridi */}
+      <div style={{ background:"#111827",borderBottom:"1px solid rgba(255,255,255,0.05)",padding:`10px ${P}px`,display:"flex",gap:isMobile?8:24,alignItems:"center",overflowX:"auto" }}>
+        {[{ icon:"🚗",v:`${DOSYA.arac.marka} ${DOSYA.arac.model}` },{ icon:"🔑",v:DOSYA.arac.plaka },{ icon:"👤",v:DOSYA.sahip.ad },{ icon:"📅",v:`Kaza: ${DOSYA.arac.kazaTarihi}` }].map((r,i)=>(
+          <div key={i} style={{ flexShrink:0,background:"rgba(255,255,255,0.04)",borderRadius:7,padding:"6px 10px",display:"flex",gap:6,alignItems:"center" }}>
+            <span style={{ fontSize:13 }}>{r.icon}</span>
+            <span style={{ fontSize:11,fontWeight:600,color:"#CBD5E1" }}>{r.v}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Desktop tabs */}
+      {!isMobile&&(
+        <div style={{ background:"#111827",borderBottom:"1px solid rgba(255,255,255,0.06)",padding:"0 24px",display:"flex",gap:2 }}>
+          {TABS.map(t=>(
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{ padding:"13px 14px",background:"none",border:"none",fontSize:12,fontWeight:500,color:tab===t.id?"#E2E8F0":t.badge&&eksik.length>0?"#EF4444":"#64748B",borderBottom:tab===t.id?"2px solid #3B82F6":"2px solid transparent",borderRadius:"4px 4px 0 0",marginBottom:-1,whiteSpace:"nowrap",position:"relative" }}>
+              {t.icon} {t.label}
+              {t.badge&&eksik.length>0&&<span style={{ position:"absolute",top:8,right:2,background:"#EF4444",color:"#fff",borderRadius:"50%",width:14,height:14,fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center" }}>{eksik.length}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* İçerik */}
+      <div style={{ flex:1,overflow:"auto",padding:`${isMobile?12:24}px ${P}px` }}>
+
+        {tab==="ozet"&&(
+          <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
+            <div style={{ display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:10 }}>
+              {[
+                { l:"Onarım İlerlemesi", v:`%${oP}`, sub:`${DOSYA.onarimAdimlari.filter(a=>a.durum==="tamamlandi").length}/${DOSYA.onarimAdimlari.length} adım`, color:"#3B82F6", progress:oP },
+                { l:"Evrak Durumu",      v:`%${eP}`, sub:`${tamamSay}/${DOSYA.evrakAdimlari.length} belge`,                               color:eksik.length?"#EF4444":"#10B981", progress:eP },
+                { l:"Eksik Evrak",       v:eksik.length, sub:eksik.length?"Hemen işlem gerekli":"Tümü tamam",                             color:eksik.length?"#EF4444":"#10B981" },
+              ].map(k=>(
+                <Card key={k.l} style={{ border:`1px solid ${k.l==="Eksik Evrak"&&k.v>0?"rgba(239,68,68,0.3)":"rgba(255,255,255,0.06)"}` }}>
+                  <div style={{ fontSize:9,color:"#475569",fontWeight:700,letterSpacing:"0.5px",marginBottom:6 }}>{k.l.toUpperCase()}</div>
+                  <div style={{ fontSize:isMobile?20:24,fontWeight:800,color:k.color,letterSpacing:"-0.5px",marginBottom:2 }}>{k.v}</div>
+                  <div style={{ fontSize:10,color:"#64748B",marginBottom:k.progress!=null?8:0 }}>{k.sub}</div>
+                  {k.progress!=null&&<div style={{ height:3,background:"rgba(255,255,255,0.06)",borderRadius:2 }}><div style={{ height:"100%",width:`${k.progress}%`,borderRadius:2,background:`linear-gradient(90deg,${k.color},${k.color}80)` }}/></div>}
+                </Card>
               ))}
             </div>
-          )}
 
-          {/* CONTENT */}
-          <div style={{ flex: 1, overflow: "auto", padding: `${isMobile ? 12 : 24}px ${P}px` }}>
+            <div style={{ background:"rgba(59,130,246,0.07)",border:"1px solid rgba(59,130,246,0.22)",borderRadius:12,padding:16 }}>
+              <div style={{ fontSize:10,color:"#60A5FA",fontWeight:800,letterSpacing:"0.8px",marginBottom:6 }}>⬤ AKTİF ADIM</div>
+              <div style={{ fontWeight:800,fontSize:isMobile?16:18,marginBottom:6 }}>{aktifAdim}</div>
+              <div style={{ fontSize:13,color:"#94A3B8",lineHeight:1.6 }}>{DOSYA.onarimAdimlari.find(a=>a.durum==="aktif")?.not}</div>
+            </div>
 
-            {/* ── ÖZET ── */}
-            {tab === "ozet" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: 10 }}>
-                  {[
-                    { l: "Onarım",   v: `%${oP}`, sub: `${DOSYA.onarimAdimlari.filter(a => a.durum === "tamamlandi").length}/${DOSYA.onarimAdimlari.length} adım`, color: "#4F46E5", progress: oP },
-                    { l: "Evrak",    v: `%${eP}`, sub: `${tamamSay}/${DOSYA.evrakAdimlari.length} belge`, color: eksik.length ? "#EF4444" : "#10B981", progress: eP },
-                    { l: "Fotoğraf", v: photos.length, sub: `${photos.filter(p => p.kategori === "kaza").length} kaza · ${photos.filter(p => p.kategori === "ekspertiz").length} ekspertiz`, color: "#3B82F6", photo: true },
-                    { l: "SMS",      v: smsAktif ? "Aktif" : "Pasif", sub: smsAktif ? `Her gün ${smsSaati}` : "Devre dışı", color: smsAktif ? "#4F46E5" : "#475569", sms: true },
-                  ].map(k => (
-                    <Card key={k.l}>
-                      <div style={{ fontSize: 9, color: "#475569", fontWeight: 700, letterSpacing: "0.5px", marginBottom: 6 }}>{k.l.toUpperCase()}</div>
-                      <div style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: k.color, letterSpacing: "-0.5px", marginBottom: 2 }}>{k.v}</div>
-                      <div style={{ fontSize: 10, color: "#64748B", marginBottom: k.progress != null ? 8 : 0 }}>{k.sub}</div>
-                      {k.progress != null && <div style={{ height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2 }}><div style={{ height: "100%", width: `${k.progress}%`, borderRadius: 2, background: `linear-gradient(90deg,${k.color},${k.color}80)` }} /></div>}
-                      {k.photo && <button onClick={() => setTab("fotolar")} style={{ marginTop: 8, background: "rgba(59,130,246,0.15)", border: "1px solid rgba(59,130,246,0.3)", color: "#60A5FA", borderRadius: 5, padding: "3px 8px", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Görüntüle →</button>}
-                      {k.sms && <button onClick={() => setTab("sms")} style={{ marginTop: 8, background: "rgba(79,70,229,0.15)", border: "1px solid rgba(79,70,229,0.3)", color: "#818CF8", borderRadius: 5, padding: "3px 8px", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Ayarlar →</button>}
-                    </Card>
-                  ))}
-                </div>
+            {eksik.length>0&&(
+              <Card style={{ border:"1px solid rgba(239,68,68,0.2)" }}>
+                <SecTitle>⚠️ Eksik Evraklar ({eksik.length})</SecTitle>
+                {eksik.map(e=>(
+                  <div key={e.id} style={{ background:"rgba(239,68,68,0.05)",border:"1px solid rgba(239,68,68,0.15)",borderRadius:9,padding:"11px 13px",marginBottom:8 }}>
+                    <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4 }}>
+                      <div style={{ fontWeight:600,fontSize:12,flex:1,marginRight:8 }}>{e.ad}</div>
+                      <Chip renk={TC_CONFIG[e.kaynak].renk} sm>{TC_CONFIG[e.kaynak].icon} {e.kaynak}</Chip>
+                    </div>
+                    {e.uyari&&<div style={{ fontSize:11,color:"#EF4444",opacity:0.85,lineHeight:1.5 }}>{e.uyari}</div>}
+                  </div>
+                ))}
+              </Card>
+            )}
 
-                <div style={{ background: "rgba(79,70,229,0.07)", border: "1px solid rgba(79,70,229,0.22)", borderRadius: 12, padding: 16 }}>
-                  <div style={{ fontSize: 10, color: "#818CF8", fontWeight: 800, letterSpacing: "0.8px", marginBottom: 6 }}>⬤ AKTİF ADIM</div>
-                  <div style={{ fontWeight: 800, fontSize: isMobile ? 16 : 18, marginBottom: 6 }}>{aktifAdim}</div>
-                  <div style={{ fontSize: 12, color: "#94A3B8", lineHeight: 1.6, marginBottom: 14 }}>{DOSYA.onarimAdimlari.find(a => a.durum === "aktif")?.not}</div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <button style={{ background: "#4F46E5", border: "none", color: "#fff", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✓ Adımı Tamamla</button>
-                    <button style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94A3B8", borderRadius: 8, padding: "8px 14px", fontSize: 12, cursor: "pointer" }}>Not Ekle</button>
+            <Card>
+              <SecTitle>📋 Dosya Özeti</SecTitle>
+              <InfoRow label="Hasar No" value={DOSYA.sigortaSirketi.hasarNo} mono/>
+              <InfoRow label="Poliçe" value={DOSYA.sigortaSirketi.police} mono/>
+              <InfoRow label="Teminat" value={DOSYA.sigortaSirketi.teminat}/>
+              <InfoRow label="Araç" value={`${DOSYA.arac.marka} ${DOSYA.arac.model} (${DOSYA.arac.yil})`}/>
+              <InfoRow label="Kaza Tarihi" value={DOSYA.arac.kazaTarihi}/>
+              <InfoRow label="Eksper Durumu" value={DOSYA.eksper.onayDurumu} color="#F59E0B"/>
+              <InfoRow label="Tahmini Teslim" value={DOSYA.onarimMerkezi.tahminiTamir} color="#10B981"/>
+            </Card>
+          </div>
+        )}
+
+        {tab==="surecler"&&(
+          <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
+            <Card>
+              <div style={{ display:"flex",justifyContent:"space-between",marginBottom:8 }}>
+                <span style={{ fontSize:12,color:"#64748B" }}>Onarım İlerlemesi</span>
+                <span style={{ fontSize:12,fontFamily:"'JetBrains Mono',monospace",color:"#60A5FA" }}>%{oP}</span>
+              </div>
+              <div style={{ height:6,background:"rgba(255,255,255,0.05)",borderRadius:3,marginBottom:20 }}>
+                <div style={{ height:"100%",width:`${oP}%`,borderRadius:3,background:"linear-gradient(90deg,#3B82F6,#1D4ED8)" }}/>
+              </div>
+              <OnarimTimeline adimlar={DOSYA.onarimAdimlari}/>
+            </Card>
+            <Card>
+              <SecTitle>🗓 Takvim</SecTitle>
+              <InfoRow label="Araç Servise Giriş" value={DOSYA.onarimMerkezi.aracGiris} color="#10B981"/>
+              <InfoRow label="Ekspertiz İncelemesi" value={DOSYA.eksper.incelemeTarihi} color="#10B981"/>
+              <InfoRow label="Tahmini Tamir Bitiş" value={DOSYA.onarimMerkezi.tahminiTamir} color="#F59E0B"/>
+            </Card>
+          </div>
+        )}
+
+        {tab==="evrak"&&(
+          <div style={{ display:"flex",flexDirection:"column",gap:10 }}>
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:4 }}>
+              {[{ l:"Teslim",v:tamamSay,c:"#10B981" },{ l:"Eksik",v:eksik.length,c:"#EF4444" },{ l:"Bekliyor",v:DOSYA.evrakAdimlari.filter(e=>e.durum==="bekliyor").length,c:"#64748B" }].map(k=>(
+                <Card key={k.l} style={{ textAlign:"center",padding:12,border:k.l==="Eksik"&&k.v>0?"1px solid rgba(239,68,68,0.3)":"1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ fontSize:22,fontWeight:800,color:k.c }}>{k.v}</div>
+                  <div style={{ fontSize:10,color:"#475569",marginTop:2 }}>{k.l}</div>
+                </Card>
+              ))}
+            </div>
+            {/* Sadece finansal olmayan evraklar görünsün */}
+            {DOSYA.evrakAdimlari
+              .filter(e => !["Maliyet Teklifi (Proforma)","Sigorta Onay Yazısı","Teslim Tutanağı"].includes(e.ad) || e.durum === "tamam")
+              .map(e=>{ const s=ED[e.durum]; const tc=TC_CONFIG[e.kaynak]; return (
+              <div key={e.id} style={{ background:"#161B26",border:`1px solid ${e.durum==="eksik"?"rgba(239,68,68,0.22)":"rgba(255,255,255,0.06)"}`,borderRadius:10,padding:"13px 14px" }}>
+                <div style={{ display:"flex",gap:12,alignItems:"flex-start" }}>
+                  <div style={{ width:26,height:26,borderRadius:"50%",flexShrink:0,background:`${s.renk}12`,border:`2px solid ${s.renk}35`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:s.renk,marginTop:1 }}>{s.icon}</div>
+                  <div style={{ flex:1,minWidth:0 }}>
+                    <div style={{ fontWeight:600,fontSize:13,marginBottom:5 }}>{e.ad}</div>
+                    <div style={{ display:"flex",gap:6,flexWrap:"wrap" }}>
+                      <Chip renk={tc.renk} sm>{tc.icon} {e.kaynak}</Chip>
+                      <Chip renk={s.renk} sm>{s.label}</Chip>
+                    </div>
+                    {e.tarih&&<div style={{ fontSize:11,color:"#10B981",marginTop:4,fontFamily:"'JetBrains Mono',monospace" }}>✓ {e.tarih}</div>}
+                    {e.uyari&&<div style={{ fontSize:11,color:"#EF4444",marginTop:4,lineHeight:1.5 }}>⚠ {e.uyari}</div>}
                   </div>
                 </div>
+              </div>
+            );})}
+            <div style={{ padding:"12px 14px",background:"rgba(59,130,246,0.05)",border:"1px solid rgba(59,130,246,0.15)",borderRadius:9,fontSize:11,color:"#60A5FA",display:"flex",gap:8,alignItems:"center" }}>
+              🔒 Finansal belgeler (proforma, mutabakat) bu görünümde gizlidir.
+            </div>
+          </div>
+        )}
 
-                {eksik.length > 0 && (
-                  <Card style={{ border: "1px solid rgba(239,68,68,0.2)" }}>
-                    <SecTitle>⚠️ Eksik Evraklar</SecTitle>
-                    {eksik.map(e => (
-                      <div key={e.id} style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.15)", borderRadius: 9, padding: "11px 13px", marginBottom: 8 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                          <div style={{ fontWeight: 600, fontSize: 12, flex: 1, marginRight: 8 }}>{e.ad}</div>
-                          <Chip renk={TC[e.kaynak].renk} sm>{TC[e.kaynak].icon} {e.kaynak}</Chip>
-                        </div>
-                        {e.uyari && <div style={{ fontSize: 11, color: "#EF4444", opacity: 0.85, marginBottom: 8, lineHeight: 1.5 }}>{e.uyari}</div>}
-                        <button onClick={() => { setTab("iletisim"); setHedef(e.kaynak); setMesajMetin(`"${e.ad}" belgesini iletmenizi rica ederiz.`); }} style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.28)", color: "#EF4444", borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>Talep Gönder →</button>
+        {tab==="taraflar"&&(
+          <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
+            {/* Servis ve eksper görülür, finansal detaylar yok */}
+            <TarafKart baslik="Araç Sahibi" kisi={DOSYA.sahip.ad} telefon={DOSYA.sahip.telefon} email={DOSYA.sahip.email} ekstra={`Poliçe: ${DOSYA.sigortaSirketi.police}`} conf={TC_CONFIG["Araç Sahibi"]}/>
+            <TarafKart baslik="Onarım Merkezi" kisi={`Yetkili: ${DOSYA.onarimMerkezi.yetkili}`} firma={DOSYA.onarimMerkezi.ad} telefon={DOSYA.onarimMerkezi.telefon} email={DOSYA.onarimMerkezi.email} ekstra={`${DOSYA.onarimMerkezi.adres} · Tahmini teslim: ${DOSYA.onarimMerkezi.tahminiTamir}`} conf={TC_CONFIG["Onarım Merkezi"]}/>
+            <TarafKart baslik="Eksper" kisi={DOSYA.eksper.ad} firma={DOSYA.eksper.firma} telefon={DOSYA.eksper.telefon} email={DOSYA.eksper.email} ekstra={`Lisans: ${DOSYA.eksper.lisans} · İnceleme: ${DOSYA.eksper.incelemeTarihi}`} conf={TC_CONFIG["Eksper"]}/>
+            <div style={{ padding:"12px 14px",background:"rgba(59,130,246,0.05)",border:"1px solid rgba(59,130,246,0.15)",borderRadius:9,fontSize:11,color:"#60A5FA",display:"flex",gap:8,alignItems:"center" }}>
+              🔒 Servis fatura bilgileri ve sigorta şirketi mutabakat detayları bu görünümde gizlidir.
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Mobil nav */}
+      {isMobile&&(
+        <div style={{ position:"fixed",bottom:0,left:0,right:0,background:"#111827",borderTop:"1px solid rgba(255,255,255,0.08)",display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom)" }}>
+          {TABS.map(t=>(
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{ flex:1,background:"none",border:"none",padding:"8px 2px 10px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,position:"relative" }}>
+              <span style={{ fontSize:18 }}>{t.icon}</span>
+              <span style={{ fontSize:8,fontWeight:tab===t.id?700:500,color:tab===t.id?"#60A5FA":"#475569" }}>{t.label}</span>
+              {tab===t.id&&<div style={{ position:"absolute",top:0,left:"20%",right:"20%",height:2,background:"#3B82F6",borderRadius:"0 0 2px 2px" }}/>}
+              {t.badge&&eksik.length>0&&<div style={{ position:"absolute",top:5,right:"calc(50% - 16px)",background:"#EF4444",color:"#fff",borderRadius:"50%",width:13,height:13,fontSize:7,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center" }}>{eksik.length}</div>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// DANIŞMAN PANELİ (tam erişim)
+// ════════════════════════════════════════════════════════════════
+function DanismanPanel({ onCikis }) {
+  const [tab, setTab] = useState("ozet");
+  const [hedef, setHedef] = useState("Eksper");
+  const [mesajMetin, setMesajMetin] = useState("");
+  const [mesajlar, setMesajlar] = useState(DOSYA.mesajlar);
+  const [isMobile, setIsMobile] = useState(false);
+  const [photos, setPhotos] = useState(DEMO_PHOTOS);
+  const [aktifKategori, setAktifKategori] = useState("tumu");
+  const [lightboxFoto, setLightboxFoto] = useState(null);
+  const [silOnayi, setSilOnayi] = useState(null);
+  const [etiketDuzenle, setEtiketDuzenle] = useState(null);
+  const [yeniEtiket, setYeniEtiket] = useState("");
+  const [smsAktif, setSmsAktif] = useState(true);
+  const [smsSaati, setSmsSaati] = useState("10:00");
+  const [smsModu, setSmsModu] = useState("otomatik");
+  const [ozelMesaj, setOzelMesaj] = useState("");
+  const [duzenlemAcik, setDuzenlemeAcik] = useState(false);
+  const [duzenlenMetin, setDuzenlenMetin] = useState("");
+  const [smsMesajlar, setSmsMesajlar] = useState(GECMIS_SMS);
+  const [smsGonderiliyor, setSmsGonderiliyor] = useState(false);
+  const [smsGonderildi, setSmsGonderildi] = useState(false);
+
+  useEffect(()=>{ const c=()=>setIsMobile(window.innerWidth<768); c(); window.addEventListener("resize",c); return()=>window.removeEventListener("resize",c); },[]);
+
+  const eksik = DOSYA.evrakAdimlari.filter(e=>e.durum==="eksik");
+  const tamamSay = DOSYA.evrakAdimlari.filter(e=>e.durum==="tamam").length;
+  const oP = Math.round((DOSYA.onarimAdimlari.filter(a=>a.durum==="tamamlandi").length/DOSYA.onarimAdimlari.length)*100);
+  const eP = Math.round((tamamSay/DOSYA.evrakAdimlari.length)*100);
+  const aktifAdim = DOSYA.onarimAdimlari.find(a=>a.durum==="aktif")?.ad||"Teklif / Onay";
+  const otomatikMesaj = SMS_SABLONLARI[aktifAdim]?.mesaj(DOSYA)||"";
+  const onizlemeMesaji = smsModu==="ozel"?ozelMesaj:(duzenlemAcik?duzenlenMetin:otomatikMesaj);
+  const filtreliPhotos = aktifKategori==="tumu"?photos:photos.filter(p=>p.kategori===aktifKategori);
+  const lbIdx = lightboxFoto?filtreliPhotos.findIndex(p=>p.id===lightboxFoto.id):-1;
+
+  const handleUpload=(np)=>{ setPhotos(p=>[{...np,yukleniyor:true},...p]); setTimeout(()=>setPhotos(p=>p.map(ph=>ph.id===np.id?{...ph,yukleniyor:false}:ph)),1200); };
+  const silFoto=(id)=>{ setPhotos(p=>p.filter(ph=>ph.id!==id)); setSilOnayi(null); if(lightboxFoto?.id===id)setLightboxFoto(null); };
+  const etiketKaydet=(id)=>{ setPhotos(p=>p.map(ph=>ph.id===id?{...ph,etiket:yeniEtiket}:ph)); setEtiketDuzenle(null); };
+  const kategoriDegistir=(id,kat)=>setPhotos(p=>p.map(ph=>ph.id===id?{...ph,kategori:kat}:ph));
+  const gonder=()=>{ if(!mesajMetin.trim())return; setMesajlar(p=>[...p,{id:p.length+1,gonderen:"Danışman",hedef,tarih:"Şimdi",mesaj:mesajMetin.trim()}]); setMesajMetin(""); };
+  const smsGonder=()=>{ setSmsGonderiliyor(true); setTimeout(()=>{ setSmsGonderiliyor(false); setSmsGonderildi(true); setSmsMesajlar(p=>[{id:p.length+1,tarih:new Date().toLocaleDateString("tr-TR"),saat:new Date().toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"}),durum:"iletildi",sablon:aktifAdim,alici:DOSYA.sahip.telefon,n:onizlemeMesaji.length},...p]); setTimeout(()=>setSmsGonderildi(false),3000); },1800); };
+
+  const P = isMobile?12:24;
+  const TABS = [
+    {id:"ozet",label:"Özet",mIcon:"📋"},{id:"taraflar",label:"Taraflar",mIcon:"👥"},
+    {id:"onarim",label:"Onarım",mIcon:"🔧"},{id:"evrak",label:"Evrak",mIcon:"📄",badge:true},
+    {id:"fotolar",label:"Foto",mIcon:"📷",photoBadge:true},{id:"iletisim",label:"Mesaj",mIcon:"💬"},{id:"sms",label:"SMS",mIcon:"📱",sms:true},
+  ];
+
+  return (
+    <div style={{ fontFamily:"'Inter',sans-serif",background:"#0D1117",minHeight:"100vh",color:"#E2E8F0",display:"flex",flexDirection:"column",paddingBottom:isMobile?68:0 }}>
+      {/* Header */}
+      <div style={{ background:"#111827",borderBottom:"1px solid rgba(255,255,255,0.07)",padding:`0 ${P}px`,height:isMobile?52:56,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:50 }}>
+        <div style={{ display:"flex",alignItems:"center",gap:isMobile?10:16 }}>
+          <div style={{ width:32,height:32,borderRadius:8,background:"linear-gradient(135deg,#1E40AF,#4F46E5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,flexShrink:0 }}>🛡️</div>
+          {!isMobile&&<div><div style={{ fontWeight:800,fontSize:14 }}>HasarTrack</div><div style={{ fontSize:10,color:"#475569" }}>Hasar Danışmanı Paneli</div></div>}
+          <div style={{ fontFamily:"'JetBrains Mono',monospace",fontSize:isMobile?12:13,fontWeight:600,color:"#818CF8",background:"rgba(79,70,229,0.12)",padding:"3px 10px",borderRadius:6,border:"1px solid rgba(79,70,229,0.25)" }}>{DOSYA.id}</div>
+          {!isMobile&&<Chip renk="#EF4444">⚡ Yüksek</Chip>}
+          {!isMobile&&<Chip renk="#10B981">● Aktif</Chip>}
+        </div>
+        <div style={{ display:"flex",gap:6,alignItems:"center" }}>
+          {!isMobile&&<Chip renk="#64748B">{DOSYA.acilisTarihi}</Chip>}
+          {!isMobile&&smsAktif&&<Chip renk="#4F46E5">📱 SMS · {smsSaati}</Chip>}
+          <button onClick={onCikis} style={{ background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.2)",color:"#EF4444",borderRadius:7,padding:"5px 12px",fontSize:11,fontWeight:700 }}>Çıkış</button>
+        </div>
+      </div>
+
+      {/* Araç şeridi */}
+      <div style={{ background:"#111827",borderBottom:"1px solid rgba(255,255,255,0.05)",padding:`10px ${P}px`,display:"flex",gap:isMobile?8:24,alignItems:"center",overflowX:"auto" }}>
+        {isMobile?(
+          [{icon:"🚗",v:`${DOSYA.arac.marka} ${DOSYA.arac.model}`},{icon:"🔑",v:DOSYA.arac.plaka},{icon:"💰",v:DOSYA.eksper.tahminiHasar,color:"#F59E0B"},{icon:"📅",v:DOSYA.arac.kazaTarihi}].map((r,i)=>(
+            <div key={i} style={{ flexShrink:0,background:"rgba(255,255,255,0.04)",borderRadius:7,padding:"6px 10px",display:"flex",gap:6,alignItems:"center" }}>
+              <span style={{ fontSize:13 }}>{r.icon}</span>
+              <span style={{ fontSize:11,fontWeight:600,color:r.color||"#CBD5E1",fontFamily:"'JetBrains Mono',monospace" }}>{r.v}</span>
+            </div>
+          ))
+        ):(
+          [{icon:"🚗",l:"Araç",v:`${DOSYA.arac.marka} ${DOSYA.arac.model} (${DOSYA.arac.yil})`},{icon:"🔑",l:"Plaka",v:DOSYA.arac.plaka,mono:true},{icon:"👤",l:"Sahip",v:DOSYA.sahip.ad},{icon:"📞",l:"Telefon",v:DOSYA.sahip.telefon,mono:true},{icon:"🏦",l:"Sigorta",v:DOSYA.sigortaSirketi.ad},{icon:"💰",l:"Hasar",v:DOSYA.eksper.tahminiHasar,color:"#F59E0B"},{icon:"📅",l:"Kaza",v:DOSYA.arac.kazaTarihi}].map(r=>(
+            <div key={r.l} style={{ display:"flex",gap:7,alignItems:"center",flexShrink:0 }}>
+              <span style={{ fontSize:13 }}>{r.icon}</span>
+              <div><div style={{ fontSize:9,color:"#475569",fontWeight:700,letterSpacing:"0.5px" }}>{r.l.toUpperCase()}</div><div style={{ fontSize:12,fontWeight:600,color:r.color||"#CBD5E1",fontFamily:r.mono?"'JetBrains Mono',monospace":"inherit" }}>{r.v}</div></div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop tabs */}
+      {!isMobile&&(
+        <div style={{ background:"#111827",borderBottom:"1px solid rgba(255,255,255,0.06)",padding:"0 24px",display:"flex",gap:2 }}>
+          {TABS.map(t=>(
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{ padding:"13px 14px",background:"none",border:"none",fontSize:12,fontWeight:500,color:tab===t.id?"#E2E8F0":t.badge&&eksik.length>0?"#EF4444":t.sms&&smsAktif&&tab!==t.id?"#818CF8":"#64748B",borderBottom:tab===t.id?"2px solid #4F46E5":"2px solid transparent",borderRadius:"4px 4px 0 0",marginBottom:-1,whiteSpace:"nowrap",position:"relative" }}>
+              {t.mIcon} {t.label}
+              {t.badge&&eksik.length>0&&<span style={{ position:"absolute",top:8,right:2,background:"#EF4444",color:"#fff",borderRadius:"50%",width:14,height:14,fontSize:8,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center" }}>{eksik.length}</span>}
+              {t.photoBadge&&photos.length>0&&<span style={{ position:"absolute",top:8,right:2,background:"#3B82F6",color:"#fff",borderRadius:4,padding:"0 4px",fontSize:8,fontWeight:800 }}>{photos.length}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* İçerik */}
+      <div style={{ flex:1,overflow:"auto",padding:`${isMobile?12:24}px ${P}px` }}>
+
+        {tab==="ozet"&&(
+          <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
+            <div style={{ display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(4,1fr)",gap:10 }}>
+              {[
+                {l:"Onarım",v:`%${oP}`,sub:`${DOSYA.onarimAdimlari.filter(a=>a.durum==="tamamlandi").length}/${DOSYA.onarimAdimlari.length} adım`,color:"#4F46E5",progress:oP},
+                {l:"Evrak",v:`%${eP}`,sub:`${tamamSay}/${DOSYA.evrakAdimlari.length} belge`,color:eksik.length?"#EF4444":"#10B981",progress:eP},
+                {l:"Fotoğraf",v:photos.length,sub:`${photos.filter(p=>p.kategori==="kaza").length} kaza`,color:"#3B82F6",photo:true},
+                {l:"SMS",v:smsAktif?"Aktif":"Pasif",sub:smsAktif?`Her gün ${smsSaati}`:"Devre dışı",color:smsAktif?"#4F46E5":"#475569",sms:true},
+              ].map(k=>(
+                <Card key={k.l}>
+                  <div style={{ fontSize:9,color:"#475569",fontWeight:700,letterSpacing:"0.5px",marginBottom:6 }}>{k.l.toUpperCase()}</div>
+                  <div style={{ fontSize:isMobile?20:24,fontWeight:800,color:k.color,letterSpacing:"-0.5px",marginBottom:2 }}>{k.v}</div>
+                  <div style={{ fontSize:10,color:"#64748B",marginBottom:k.progress!=null?8:0 }}>{k.sub}</div>
+                  {k.progress!=null&&<div style={{ height:3,background:"rgba(255,255,255,0.06)",borderRadius:2 }}><div style={{ height:"100%",width:`${k.progress}%`,borderRadius:2,background:`linear-gradient(90deg,${k.color},${k.color}80)` }}/></div>}
+                  {k.photo&&<button onClick={()=>setTab("fotolar")} style={{ marginTop:8,background:"rgba(59,130,246,0.15)",border:"1px solid rgba(59,130,246,0.3)",color:"#60A5FA",borderRadius:5,padding:"3px 8px",fontSize:9,fontWeight:700 }}>Görüntüle →</button>}
+                  {k.sms&&<button onClick={()=>setTab("sms")} style={{ marginTop:8,background:"rgba(79,70,229,0.15)",border:"1px solid rgba(79,70,229,0.3)",color:"#818CF8",borderRadius:5,padding:"3px 8px",fontSize:9,fontWeight:700 }}>Ayarlar →</button>}
+                </Card>
+              ))}
+            </div>
+            <div style={{ background:"rgba(79,70,229,0.07)",border:"1px solid rgba(79,70,229,0.22)",borderRadius:12,padding:16 }}>
+              <div style={{ fontSize:10,color:"#818CF8",fontWeight:800,letterSpacing:"0.8px",marginBottom:6 }}>⬤ AKTİF ADIM</div>
+              <div style={{ fontWeight:800,fontSize:isMobile?16:18,marginBottom:6 }}>{aktifAdim}</div>
+              <div style={{ fontSize:12,color:"#94A3B8",lineHeight:1.6,marginBottom:14 }}>{DOSYA.onarimAdimlari.find(a=>a.durum==="aktif")?.not}</div>
+              <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
+                <button style={{ background:"#4F46E5",border:"none",color:"#fff",borderRadius:8,padding:"8px 16px",fontSize:12,fontWeight:700 }}>✓ Adımı Tamamla</button>
+                <button style={{ background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"#94A3B8",borderRadius:8,padding:"8px 14px",fontSize:12 }}>Not Ekle</button>
+              </div>
+            </div>
+            {eksik.length>0&&(
+              <Card style={{ border:"1px solid rgba(239,68,68,0.2)" }}>
+                <SecTitle>⚠️ Eksik Evraklar</SecTitle>
+                {eksik.map(e=>(
+                  <div key={e.id} style={{ background:"rgba(239,68,68,0.05)",border:"1px solid rgba(239,68,68,0.15)",borderRadius:9,padding:"11px 13px",marginBottom:8 }}>
+                    <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:4 }}>
+                      <div style={{ fontWeight:600,fontSize:12,flex:1,marginRight:8 }}>{e.ad}</div>
+                      <Chip renk={TC_CONFIG[e.kaynak].renk} sm>{TC_CONFIG[e.kaynak].icon} {e.kaynak}</Chip>
+                    </div>
+                    {e.uyari&&<div style={{ fontSize:11,color:"#EF4444",opacity:0.85,marginBottom:8,lineHeight:1.5 }}>{e.uyari}</div>}
+                    <button onClick={()=>{ setTab("iletisim"); setHedef(e.kaynak); setMesajMetin(`"${e.ad}" belgesini iletmenizi rica ederiz.`); }} style={{ background:"rgba(239,68,68,0.12)",border:"1px solid rgba(239,68,68,0.28)",color:"#EF4444",borderRadius:6,padding:"4px 10px",fontSize:10,fontWeight:700 }}>Talep Gönder →</button>
+                  </div>
+                ))}
+              </Card>
+            )}
+            <Card>
+              <SecTitle>💬 Son İletişimler</SecTitle>
+              {mesajlar.slice(-3).map(m=>{ const gc=TC_CONFIG[m.gonderen]||TC_CONFIG["Danışman"]; const hc=TC_CONFIG[m.hedef]||TC_CONFIG["Danışman"]; return (
+                <div key={m.id} style={{ background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.05)",borderRadius:8,padding:11,marginBottom:8 }}>
+                  <div style={{ display:"flex",gap:5,alignItems:"center",marginBottom:5,flexWrap:"wrap" }}>
+                    <span style={{ fontSize:11,fontWeight:700,color:gc.renk }}>{gc.icon} {m.gonderen}</span>
+                    <span style={{ color:"#334155" }}>→</span>
+                    <span style={{ fontSize:11,fontWeight:700,color:hc.renk }}>{hc.icon} {m.hedef}</span>
+                    <span style={{ marginLeft:"auto",fontSize:10,color:"#475569",fontFamily:"'JetBrains Mono',monospace" }}>{m.tarih}</span>
+                  </div>
+                  <div style={{ fontSize:12,color:"#94A3B8",lineHeight:1.5 }}>{m.mesaj}</div>
+                </div>
+              );})}
+            </Card>
+          </div>
+        )}
+
+        {tab==="taraflar"&&(
+          <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
+            <TarafKart baslik="Araç Sahibi" kisi={DOSYA.sahip.ad} telefon={DOSYA.sahip.telefon} email={DOSYA.sahip.email} ekstra={`TC: ${DOSYA.sahip.tc} · Tercih: SMS`} conf={TC_CONFIG["Araç Sahibi"]}/>
+            <TarafKart baslik="Sigorta Şirketi" kisi={`Temsilci: ${DOSYA.sigortaSirketi.temsilci}`} firma={DOSYA.sigortaSirketi.ad} telefon={DOSYA.sigortaSirketi.telefon} email={DOSYA.sigortaSirketi.email} ekstra={`Hasar No: ${DOSYA.sigortaSirketi.hasarNo} · ${DOSYA.sigortaSirketi.teminat} · Muafiyet: ${DOSYA.sigortaSirketi.muafiyet}`} conf={TC_CONFIG["Sigorta Şirketi"]}/>
+            <TarafKart baslik="Onarım Merkezi" kisi={`Yetkili: ${DOSYA.onarimMerkezi.yetkili}`} firma={DOSYA.onarimMerkezi.ad} telefon={DOSYA.onarimMerkezi.telefon} email={DOSYA.onarimMerkezi.email} ekstra={DOSYA.onarimMerkezi.adres} conf={TC_CONFIG["Onarım Merkezi"]}/>
+            <TarafKart baslik="Eksper" kisi={DOSYA.eksper.ad} firma={DOSYA.eksper.firma} telefon={DOSYA.eksper.telefon} email={DOSYA.eksper.email} ekstra={`Lisans: ${DOSYA.eksper.lisans} · Tahmini Hasar: ${DOSYA.eksper.tahminiHasar}`} conf={TC_CONFIG["Eksper"]}/>
+            <Card><SecTitle>🚗 Araç & Poliçe</SecTitle>
+              <InfoRow label="Araç" value={`${DOSYA.arac.marka} ${DOSYA.arac.model} (${DOSYA.arac.yil})`}/>
+              <InfoRow label="Şasi No" value={DOSYA.arac.sase} mono/>
+              <InfoRow label="Teminat" value={DOSYA.sigortaSirketi.teminat}/>
+              <InfoRow label="Muafiyet" value={DOSYA.sigortaSirketi.muafiyet} color="#F59E0B"/>
+              <InfoRow label="Tahmini Hasar" value={DOSYA.eksper.tahminiHasar} color="#EF4444"/>
+            </Card>
+          </div>
+        )}
+
+        {tab==="onarim"&&(
+          <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
+            <div style={{ background:"rgba(79,70,229,0.07)",border:"1px solid rgba(79,70,229,0.22)",borderRadius:12,padding:16 }}>
+              <div style={{ fontSize:10,color:"#818CF8",fontWeight:800,letterSpacing:"0.8px",marginBottom:6 }}>⬤ AKTİF ADIM</div>
+              <div style={{ fontWeight:800,fontSize:17,marginBottom:6 }}>{aktifAdim}</div>
+              <div style={{ fontSize:12,color:"#94A3B8",lineHeight:1.6,marginBottom:14 }}>{DOSYA.onarimAdimlari.find(a=>a.durum==="aktif")?.not}</div>
+              <div style={{ display:"flex",gap:8 }}>
+                <button style={{ flex:1,background:"#4F46E5",border:"none",color:"#fff",borderRadius:8,padding:"10px",fontSize:12,fontWeight:700 }}>✓ Adımı Tamamla</button>
+                <button style={{ background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"#94A3B8",borderRadius:8,padding:"10px 14px",fontSize:12 }}>Not Ekle</button>
+              </div>
+            </div>
+            <Card>
+              <div style={{ display:"flex",justifyContent:"space-between",marginBottom:8 }}>
+                <span style={{ fontSize:12,color:"#64748B" }}>Genel İlerleme</span>
+                <span style={{ fontSize:12,fontFamily:"'JetBrains Mono',monospace",color:"#818CF8" }}>%{oP}</span>
+              </div>
+              <div style={{ height:6,background:"rgba(255,255,255,0.05)",borderRadius:3,marginBottom:16 }}>
+                <div style={{ height:"100%",width:`${oP}%`,borderRadius:3,background:"linear-gradient(90deg,#4F46E5,#7C3AED)" }}/>
+              </div>
+              <OnarimTimeline adimlar={DOSYA.onarimAdimlari}/>
+            </Card>
+          </div>
+        )}
+
+        {tab==="evrak"&&(
+          <div style={{ display:"flex",flexDirection:"column",gap:10 }}>
+            <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8 }}>
+              {[{l:"Teslim",v:tamamSay,c:"#10B981"},{l:"Eksik",v:eksik.length,c:"#EF4444"},{l:"Bekliyor",v:DOSYA.evrakAdimlari.filter(e=>e.durum==="bekliyor").length,c:"#64748B"}].map(k=>(
+                <Card key={k.l} style={{ textAlign:"center",padding:12,border:k.l==="Eksik"&&k.v>0?"1px solid rgba(239,68,68,0.3)":"1px solid rgba(255,255,255,0.06)" }}>
+                  <div style={{ fontSize:22,fontWeight:800,color:k.c }}>{k.v}</div>
+                  <div style={{ fontSize:10,color:"#475569",marginTop:2 }}>{k.l}</div>
+                </Card>
+              ))}
+            </div>
+            {DOSYA.evrakAdimlari.map(e=>{ const s=ED[e.durum]; const tc=TC_CONFIG[e.kaynak]; return (
+              <div key={e.id} style={{ background:"#161B26",border:`1px solid ${e.durum==="eksik"?"rgba(239,68,68,0.22)":"rgba(255,255,255,0.06)"}`,borderRadius:10,padding:"13px 14px" }}>
+                <div style={{ display:"flex",gap:12,alignItems:"flex-start" }}>
+                  <div style={{ width:26,height:26,borderRadius:"50%",flexShrink:0,background:`${s.renk}12`,border:`2px solid ${s.renk}35`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:s.renk,marginTop:1 }}>{s.icon}</div>
+                  <div style={{ flex:1,minWidth:0 }}>
+                    <div style={{ fontWeight:600,fontSize:13,marginBottom:5 }}>{e.ad}</div>
+                    <div style={{ display:"flex",gap:6,flexWrap:"wrap",marginBottom:e.uyari?5:0 }}>
+                      <Chip renk={tc.renk} sm>{tc.icon} {e.kaynak}</Chip>
+                      <Chip renk={s.renk} sm>{s.label}</Chip>
+                    </div>
+                    {e.tarih&&<div style={{ fontSize:11,color:"#10B981",marginTop:4,fontFamily:"'JetBrains Mono',monospace" }}>✓ {e.tarih}</div>}
+                    {e.uyari&&<div style={{ fontSize:11,color:"#EF4444",marginTop:4,lineHeight:1.5 }}>⚠ {e.uyari}</div>}
+                    {e.durum==="eksik"&&<button onClick={()=>{ setTab("iletisim"); setHedef(e.kaynak); setMesajMetin(`"${e.ad}" belgesini iletmenizi rica ederiz.`); }} style={{ marginTop:8,background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.25)",color:"#EF4444",borderRadius:6,padding:"5px 11px",fontSize:11,fontWeight:700 }}>Talep Gönder →</button>}
+                  </div>
+                </div>
+              </div>
+            );})}
+          </div>
+        )}
+
+        {tab==="fotolar"&&(
+          <div style={{ display:"flex",flexDirection:"column",gap:16 }}>
+            <div style={{ display:"grid",gridTemplateColumns:isMobile?"repeat(3,1fr)":"repeat(5,1fr)",gap:10 }}>
+              {KATEGORILER.map(k=>{ const count=k.id==="tumu"?photos.length:photos.filter(p=>p.kategori===k.id).length; return (
+                <button key={k.id} onClick={()=>setAktifKategori(k.id)} style={{ background:aktifKategori===k.id?"rgba(59,130,246,0.15)":"rgba(255,255,255,0.03)",border:`1px solid ${aktifKategori===k.id?"rgba(59,130,246,0.4)":"rgba(255,255,255,0.07)"}`,borderRadius:10,padding:"10px 8px",cursor:"pointer",textAlign:"center" }}>
+                  <div style={{ fontSize:isMobile?18:20,marginBottom:4 }}>{k.ikon}</div>
+                  <div style={{ fontSize:18,fontWeight:800,color:aktifKategori===k.id?"#60A5FA":"#E2E8F0" }}>{count}</div>
+                  <div style={{ fontSize:9,color:aktifKategori===k.id?"#60A5FA":"#475569",marginTop:2,fontWeight:600 }}>{k.label}</div>
+                </button>
+              );})}
+            </div>
+            <DropZone onUpload={handleUpload} isMobile={isMobile}/>
+            {filtreliPhotos.length>0&&(
+              <div style={{ display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:isMobile?10:14 }}>
+                {filtreliPhotos.map(foto=>{ const kat=KATEGORILER.find(k=>k.id===foto.kategori); return (
+                  <div key={foto.id} className="photo-card" style={{ background:"#161B26",border:"1px solid rgba(255,255,255,0.07)",borderRadius:12,overflow:"hidden",position:"relative" }}>
+                    {foto.yukleniyor&&<div style={{ position:"absolute",inset:0,background:"rgba(13,17,23,0.8)",zIndex:10,display:"flex",alignItems:"center",justifyContent:"center" }}><div style={{ width:32,height:32,border:"3px solid rgba(79,70,229,0.3)",borderTop:"3px solid #4F46E5",borderRadius:"50%",animation:"spin 0.8s linear infinite" }}/></div>}
+                    <div style={{ position:"relative",cursor:"pointer" }} onClick={()=>!foto.yukleniyor&&setLightboxFoto(foto)}>
+                      <img src={foto.url} alt={foto.etiket} style={{ width:"100%",aspectRatio:"4/3",objectFit:"cover",display:"block" }}/>
+                      <div className="photo-overlay" style={{ position:"absolute",inset:0,background:"rgba(0,0,0,0.55)",opacity:0,transition:"opacity 0.2s",display:"flex",alignItems:"center",justifyContent:"center" }}>
+                        <div style={{ background:"rgba(255,255,255,0.15)",borderRadius:"50%",width:44,height:44,display:"flex",alignItems:"center",justifyContent:"center",fontSize:20 }}>🔍</div>
                       </div>
-                    ))}
-                  </Card>
-                )}
-
-                <Card>
-                  <SecTitle>💬 Son İletişimler</SecTitle>
-                  {mesajlar.slice(-3).map(m => {
-                    const gc = TC[m.gonderen] || TC["Danışman"];
-                    const hc = TC[m.hedef] || TC["Danışman"];
-                    return (
-                      <div key={m.id} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 8, padding: 11, marginBottom: 8 }}>
-                        <div style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 5, flexWrap: "wrap" }}>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: gc.renk }}>{gc.icon} {m.gonderen}</span>
-                          <span style={{ color: "#334155" }}>→</span>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: hc.renk }}>{hc.icon} {m.hedef}</span>
-                          <span style={{ marginLeft: "auto", fontSize: 10, color: "#475569", fontFamily: "'JetBrains Mono',monospace" }}>{m.tarih}</span>
+                      <div style={{ position:"absolute",top:8,left:8 }}><span style={{ fontSize:9,fontWeight:700,padding:"3px 7px",borderRadius:4,background:"rgba(0,0,0,0.65)",color:"#fff" }}>{kat?.ikon} {kat?.label}</span></div>
+                    </div>
+                    <div style={{ padding:"10px 12px" }}>
+                      {etiketDuzenle===foto.id?(
+                        <div style={{ display:"flex",gap:6 }}>
+                          <input type="text" value={yeniEtiket} onChange={e=>setYeniEtiket(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter")etiketKaydet(foto.id); if(e.key==="Escape")setEtiketDuzenle(null); }} autoFocus style={{ flex:1,background:"rgba(255,255,255,0.06)",border:"1px solid rgba(79,70,229,0.4)",borderRadius:6,color:"#E2E8F0",padding:"4px 8px",fontSize:12 }}/>
+                          <button onClick={()=>etiketKaydet(foto.id)} style={{ background:"#4F46E5",border:"none",color:"#fff",borderRadius:6,padding:"4px 8px",fontSize:11 }}>✓</button>
                         </div>
-                        <div style={{ fontSize: 12, color: "#94A3B8", lineHeight: 1.5 }}>{m.mesaj}</div>
-                      </div>
-                    );
-                  })}
-                </Card>
-              </div>
-            )}
-
-            {/* ── TARAFLAR ── */}
-            {tab === "taraflar" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <TarafKart baslik="Araç Sahibi" kisi={DOSYA.sahip.ad} telefon={DOSYA.sahip.telefon} email={DOSYA.sahip.email} ekstra={`TC: ${DOSYA.sahip.tc} · Tercih: ${DOSYA.sahip.iletisimTercihi}`} conf={TC["Araç Sahibi"]} />
-                <TarafKart baslik="Sigorta Şirketi" kisi={`Temsilci: ${DOSYA.sigortaSirketi.temsilci}`} firma={DOSYA.sigortaSirketi.ad} telefon={DOSYA.sigortaSirketi.telefon} email={DOSYA.sigortaSirketi.email} ekstra={`Hasar No: ${DOSYA.sigortaSirketi.hasarNo} · ${DOSYA.sigortaSirketi.teminat}`} conf={TC["Sigorta Şirketi"]} />
-                <TarafKart baslik="Onarım Merkezi" kisi={`Yetkili: ${DOSYA.onarimMerkezi.yetkili}`} firma={DOSYA.onarimMerkezi.ad} telefon={DOSYA.onarimMerkezi.telefon} email={DOSYA.onarimMerkezi.email} ekstra={DOSYA.onarimMerkezi.adres} conf={TC["Onarım Merkezi"]} />
-                <TarafKart baslik="Eksper" kisi={DOSYA.eksper.ad} firma={DOSYA.eksper.firma} telefon={DOSYA.eksper.telefon} email={DOSYA.eksper.email} ekstra={`Lisans: ${DOSYA.eksper.lisans} · ${DOSYA.eksper.onayDurumu}`} conf={TC["Eksper"]} />
-                <Card>
-                  <SecTitle>🚗 Araç & Poliçe</SecTitle>
-                  <InfoRow label="Marka / Model" value={`${DOSYA.arac.marka} ${DOSYA.arac.model}`} />
-                  <InfoRow label="Şasi No" value={DOSYA.arac.sase} mono />
-                  <InfoRow label="Teminat" value={DOSYA.sigortaSirketi.teminat} />
-                  <InfoRow label="Muafiyet" value={DOSYA.sigortaSirketi.muafiyet} color="#F59E0B" />
-                  <InfoRow label="Tahmini Hasar" value={DOSYA.eksper.tahminiHasar} color="#EF4444" />
-                </Card>
-              </div>
-            )}
-
-            {/* ── ONARIM ── */}
-            {tab === "onarim" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <div style={{ background: "rgba(79,70,229,0.07)", border: "1px solid rgba(79,70,229,0.22)", borderRadius: 12, padding: 16 }}>
-                  <div style={{ fontSize: 10, color: "#818CF8", fontWeight: 800, letterSpacing: "0.8px", marginBottom: 6 }}>⬤ AKTİF ADIM</div>
-                  <div style={{ fontWeight: 800, fontSize: 17, marginBottom: 6 }}>{aktifAdim}</div>
-                  <div style={{ fontSize: 12, color: "#94A3B8", lineHeight: 1.6, marginBottom: 14 }}>{DOSYA.onarimAdimlari.find(a => a.durum === "aktif")?.not}</div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button style={{ flex: 1, background: "#4F46E5", border: "none", color: "#fff", borderRadius: 8, padding: "10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✓ Adımı Tamamla</button>
-                    <button style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#94A3B8", borderRadius: 8, padding: "10px 14px", fontSize: 12, cursor: "pointer" }}>Not Ekle</button>
-                  </div>
-                </div>
-                <Card>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                    <span style={{ fontSize: 12, color: "#64748B" }}>Genel İlerleme</span>
-                    <span style={{ fontSize: 12, fontFamily: "'JetBrains Mono',monospace", color: "#818CF8" }}>%{oP}</span>
-                  </div>
-                  <div style={{ height: 6, background: "rgba(255,255,255,0.05)", borderRadius: 3, marginBottom: 16 }}>
-                    <div style={{ height: "100%", width: `${oP}%`, borderRadius: 3, background: "linear-gradient(90deg,#4F46E5,#7C3AED)", boxShadow: "0 0 8px rgba(79,70,229,0.4)" }} />
-                  </div>
-                  <OnarimTimeline adimlar={DOSYA.onarimAdimlari} />
-                </Card>
-                <Card>
-                  <SecTitle>🗓 Takvim</SecTitle>
-                  <InfoRow label="Araç Servise Giriş" value={DOSYA.onarimMerkezi.aracGiris} color="#10B981" />
-                  <InfoRow label="Ekspertiz İncelemesi" value={DOSYA.eksper.incelemeTarihi} color="#10B981" />
-                  <InfoRow label="Tahmini Tamir Bitiş" value={DOSYA.onarimMerkezi.tahminiTamir} color="#F59E0B" />
-                </Card>
-              </div>
-            )}
-
-            {/* ── EVRAK ── */}
-            {tab === "evrak" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                  {[{ l: "Teslim", v: tamamSay, c: "#10B981" }, { l: "Eksik", v: eksik.length, c: "#EF4444" }, { l: "Bekliyor", v: DOSYA.evrakAdimlari.filter(e => e.durum === "bekliyor").length, c: "#64748B" }].map(k => (
-                    <Card key={k.l} style={{ textAlign: "center", padding: 12, border: k.l === "Eksik" && k.v > 0 ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(255,255,255,0.06)" }}>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: k.c }}>{k.v}</div>
-                      <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>{k.l}</div>
-                    </Card>
-                  ))}
-                </div>
-                {DOSYA.evrakAdimlari.map(e => {
-                  const s = ED[e.durum]; const tc = TC[e.kaynak];
-                  return (
-                    <div key={e.id} style={{ background: "#161B26", border: `1px solid ${e.durum === "eksik" ? "rgba(239,68,68,0.22)" : "rgba(255,255,255,0.06)"}`, borderRadius: 10, padding: "13px 14px" }}>
-                      <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                        <div style={{ width: 26, height: 26, borderRadius: "50%", flexShrink: 0, background: `${s.renk}12`, border: `2px solid ${s.renk}35`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: s.renk, marginTop: 1 }}>{s.icon}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 5 }}>{e.ad}</div>
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: e.uyari ? 5 : 0 }}>
-                            <Chip renk={tc.renk} sm>{tc.icon} {e.kaynak}</Chip>
-                            <Chip renk={s.renk} sm>{s.label}</Chip>
+                      ):(
+                        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6 }}>
+                          <div style={{ flex:1,minWidth:0 }}>
+                            <div style={{ fontWeight:600,fontSize:12,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis" }}>{foto.etiket}</div>
+                            <div style={{ fontSize:10,color:"#64748B",marginTop:2 }}>{foto.tarih} · {foto.yukleyen}</div>
                           </div>
-                          {e.tarih && <div style={{ fontSize: 11, color: "#10B981", marginTop: 4, fontFamily: "'JetBrains Mono',monospace" }}>✓ {e.tarih}</div>}
-                          {e.uyari && <div style={{ fontSize: 11, color: "#EF4444", marginTop: 4, lineHeight: 1.5 }}>⚠ {e.uyari}</div>}
-                          {e.durum === "eksik" && <button onClick={() => { setTab("iletisim"); setHedef(e.kaynak); setMesajMetin(`"${e.ad}" belgesini iletmenizi rica ederiz.`); }} style={{ marginTop: 8, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#EF4444", borderRadius: 6, padding: "5px 11px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Talep Gönder →</button>}
+                          <div style={{ display:"flex",gap:4,flexShrink:0 }}>
+                            <button onClick={()=>{ setEtiketDuzenle(foto.id); setYeniEtiket(foto.etiket); }} style={{ background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.08)",color:"#94A3B8",borderRadius:5,width:26,height:26,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center" }}>✏️</button>
+                            <button onClick={()=>setSilOnayi(foto.id)} style={{ background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.2)",color:"#EF4444",borderRadius:5,width:26,height:26,fontSize:12,display:"flex",alignItems:"center",justifyContent:"center" }}>🗑️</button>
+                          </div>
+                        </div>
+                      )}
+                      <div style={{ display:"flex",gap:4,marginTop:8,flexWrap:"wrap" }}>
+                        {KATEGORILER.filter(k=>k.id!=="tumu").map(k=>(
+                          <button key={k.id} onClick={()=>kategoriDegistir(foto.id,k.id)} style={{ padding:"2px 7px",borderRadius:4,border:"none",background:foto.kategori===k.id?"rgba(59,130,246,0.2)":"rgba(255,255,255,0.04)",color:foto.kategori===k.id?"#60A5FA":"#64748B",fontSize:9,fontWeight:600,cursor:"pointer" }}>{k.ikon}</button>
+                        ))}
+                      </div>
+                    </div>
+                    {silOnayi===foto.id&&(
+                      <div style={{ position:"absolute",inset:0,background:"rgba(0,0,0,0.85)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:12,zIndex:20,borderRadius:12 }}>
+                        <div style={{ fontSize:13,fontWeight:700,color:"#EF4444" }}>Fotoğrafı sil?</div>
+                        <div style={{ display:"flex",gap:8 }}>
+                          <button onClick={()=>silFoto(foto.id)} style={{ background:"#EF4444",border:"none",color:"#fff",borderRadius:7,padding:"7px 16px",fontSize:12,fontWeight:700 }}>Sil</button>
+                          <button onClick={()=>setSilOnayi(null)} style={{ background:"rgba(255,255,255,0.08)",border:"1px solid rgba(255,255,255,0.12)",color:"#94A3B8",borderRadius:7,padding:"7px 16px",fontSize:12 }}>İptal</button>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* ── FOTOĞRAFLAR ── */}
-            {tab === "fotolar" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(3,1fr)" : "repeat(5,1fr)", gap: 10 }}>
-                  {KATEGORILER.map(k => {
-                    const count = k.id === "tumu" ? photos.length : photos.filter(p => p.kategori === k.id).length;
-                    return (
-                      <button key={k.id} onClick={() => setAktifKategori(k.id)} style={{ background: aktifKategori === k.id ? "rgba(59,130,246,0.15)" : "rgba(255,255,255,0.03)", border: `1px solid ${aktifKategori === k.id ? "rgba(59,130,246,0.4)" : "rgba(255,255,255,0.07)"}`, borderRadius: 10, padding: "10px 8px", cursor: "pointer", textAlign: "center" }}>
-                        <div style={{ fontSize: isMobile ? 18 : 20, marginBottom: 4 }}>{k.ikon}</div>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: aktifKategori === k.id ? "#60A5FA" : "#E2E8F0" }}>{count}</div>
-                        <div style={{ fontSize: 9, color: aktifKategori === k.id ? "#60A5FA" : "#475569", marginTop: 2, fontWeight: 600 }}>{k.label}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <DropZone onUpload={handleUpload} isMobile={isMobile} />
-
-                {filtreliPhotos.length > 0 ? (
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13 }}>
-                        {aktifKategori === "tumu" ? "Tüm Fotoğraflar" : KATEGORILER.find(k => k.id === aktifKategori)?.label}
-                        <span style={{ fontWeight: 400, fontSize: 12, color: "#64748B", marginLeft: 8 }}>{filtreliPhotos.length} adet</span>
-                      </div>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)", gap: isMobile ? 10 : 14 }}>
-                      {filtreliPhotos.map(foto => {
-                        const kat = KATEGORILER.find(k => k.id === foto.kategori);
-                        return (
-                          <div key={foto.id} className="photo-card" style={{ background: "#161B26", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, overflow: "hidden", position: "relative" }}>
-                            {foto.yukleniyor && (
-                              <div style={{ position: "absolute", inset: 0, background: "rgba(13,17,23,0.8)", zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                                <div style={{ width: 32, height: 32, border: "3px solid rgba(79,70,229,0.3)", borderTop: "3px solid #4F46E5", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-                                <div style={{ fontSize: 11, color: "#818CF8", fontWeight: 600 }}>Yükleniyor...</div>
-                              </div>
-                            )}
-                            <div style={{ position: "relative", cursor: "pointer" }} onClick={() => !foto.yukleniyor && setLightboxFoto(foto)}>
-                              <img src={foto.url} alt={foto.etiket} style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", display: "block" }} />
-                              <div className="photo-overlay" style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", opacity: 0, transition: "opacity 0.2s", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                <div style={{ background: "rgba(255,255,255,0.15)", backdropFilter: "blur(4px)", borderRadius: "50%", width: 44, height: 44, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>🔍</div>
-                              </div>
-                              <div style={{ position: "absolute", top: 8, left: 8 }}>
-                                <span style={{ fontSize: 9, fontWeight: 700, padding: "3px 7px", borderRadius: 4, background: "rgba(0,0,0,0.65)", color: "#fff" }}>{kat?.ikon} {kat?.label}</span>
-                              </div>
-                            </div>
-                            <div style={{ padding: "10px 12px" }}>
-                              {etiketDuzenle === foto.id ? (
-                                <div style={{ display: "flex", gap: 6 }}>
-                                  <input type="text" value={yeniEtiket} onChange={e => setYeniEtiket(e.target.value)} onKeyDown={e => { if (e.key === "Enter") etiketKaydet(foto.id); if (e.key === "Escape") setEtiketDuzenle(null); }} autoFocus style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(79,70,229,0.4)", borderRadius: 6, color: "#E2E8F0", padding: "4px 8px", fontSize: 12 }} />
-                                  <button onClick={() => etiketKaydet(foto.id)} style={{ background: "#4F46E5", border: "none", color: "#fff", borderRadius: 6, padding: "4px 8px", fontSize: 11, cursor: "pointer" }}>✓</button>
-                                </div>
-                              ) : (
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
-                                  <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontWeight: 600, fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{foto.etiket}</div>
-                                    <div style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>{foto.tarih} · {foto.yukleyen}</div>
-                                  </div>
-                                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                                    <button onClick={() => { setEtiketDuzenle(foto.id); setYeniEtiket(foto.etiket); }} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.08)", color: "#94A3B8", borderRadius: 5, width: 26, height: 26, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>✏️</button>
-                                    <button onClick={() => setSilOnayi(foto.id)} style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#EF4444", borderRadius: 5, width: 26, height: 26, fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>🗑️</button>
-                                  </div>
-                                </div>
-                              )}
-                              <div style={{ display: "flex", gap: 4, marginTop: 8, flexWrap: "wrap" }}>
-                                {KATEGORILER.filter(k => k.id !== "tumu").map(k => (
-                                  <button key={k.id} onClick={() => kategoriDegistir(foto.id, k.id)} style={{ padding: "2px 7px", borderRadius: 4, border: "none", background: foto.kategori === k.id ? "rgba(59,130,246,0.2)" : "rgba(255,255,255,0.04)", color: foto.kategori === k.id ? "#60A5FA" : "#64748B", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>{k.ikon}</button>
-                                ))}
-                              </div>
-                            </div>
-                            {silOnayi === foto.id && (
-                              <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, zIndex: 20, borderRadius: 12 }}>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: "#EF4444" }}>Fotoğrafı sil?</div>
-                                <div style={{ display: "flex", gap: 8 }}>
-                                  <button onClick={() => silFoto(foto.id)} style={{ background: "#EF4444", border: "none", color: "#fff", borderRadius: 7, padding: "7px 16px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Sil</button>
-                                  <button onClick={() => setSilOnayi(null)} style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", color: "#94A3B8", borderRadius: 7, padding: "7px 16px", fontSize: 12, cursor: "pointer" }}>İptal</button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
+                    )}
                   </div>
-                ) : (
-                  <div style={{ textAlign: "center", padding: "40px 24px", color: "#475569" }}>
-                    <div style={{ fontSize: 44, marginBottom: 12 }}>🖼️</div>
-                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Bu kategoride fotoğraf yok</div>
-                    <div style={{ fontSize: 12 }}>Yukarıdan fotoğraf yükleyebilirsiniz</div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── İLETİŞİM ── */}
-            {tab === "iletisim" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <Card style={{ display: "flex", flexDirection: "column", padding: 0, overflow: "hidden" }}>
-                  <div style={{ padding: "14px 16px", borderBottom: "1px solid rgba(255,255,255,0.06)", fontWeight: 700, fontSize: 13 }}>💬 Mesajlar</div>
-                  <div style={{ overflow: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10, maxHeight: 360 }}>
-                    {mesajlar.map(m => {
-                      const benden = m.gonderen === "Danışman";
-                      const gc = TC[m.gonderen] || TC["Danışman"];
-                      const hc = TC[m.hedef] || TC["Danışman"];
-                      return (
-                        <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: benden ? "flex-end" : "flex-start", animation: "fadeUp 0.2s ease" }}>
-                          <div style={{ display: "flex", gap: 5, marginBottom: 4, alignItems: "center", flexWrap: "wrap", justifyContent: benden ? "flex-end" : "flex-start" }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: gc.renk }}>{gc.icon} {m.gonderen}</span>
-                            <span style={{ color: "#334155" }}>→</span>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: hc.renk }}>{hc.icon} {m.hedef}</span>
-                            <span style={{ fontSize: 10, color: "#475569", fontFamily: "'JetBrains Mono',monospace" }}>{m.tarih}</span>
-                          </div>
-                          <div style={{ maxWidth: "82%", padding: "10px 13px", borderRadius: 10, background: benden ? "rgba(79,70,229,0.18)" : "rgba(255,255,255,0.04)", border: `1px solid ${benden ? "rgba(79,70,229,0.28)" : "rgba(255,255,255,0.07)"}`, fontSize: 13, color: "#CBD5E1", lineHeight: 1.6 }}>{m.mesaj}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                    <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-                      {Object.keys(TC).filter(k => k !== "Danışman").map(t => (
-                        <button key={t} onClick={() => setHedef(t)} style={{ padding: "5px 10px", borderRadius: 6, border: "none", background: hedef === t ? `${TC[t].renk}20` : "rgba(255,255,255,0.04)", color: hedef === t ? TC[t].renk : "#64748B", fontSize: 11, fontWeight: 600, cursor: "pointer", borderWidth: 1, borderStyle: "solid", borderColor: hedef === t ? `${TC[t].renk}35` : "rgba(255,255,255,0.07)" }}>{TC[t].icon} {isMobile ? "" : t}</button>
-                      ))}
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <textarea value={mesajMetin} onChange={e => setMesajMetin(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); gonder(); } }} placeholder={`${hedef}'e mesaj...`} style={{ flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, color: "#E2E8F0", padding: "10px 12px", fontSize: 13, resize: "none", minHeight: 44, maxHeight: 90 }} />
-                      <button onClick={gonder} style={{ background: "#4F46E5", border: "none", color: "#fff", borderRadius: 8, padding: "0 16px", fontSize: 18, cursor: "pointer", flexShrink: 0 }}>→</button>
-                    </div>
-                  </div>
-                </Card>
-                <Card>
-                  <SecTitle>⚡ Hızlı Şablonlar</SecTitle>
-                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8 }}>
-                    {[
-                      { l: "Eksper Raporu Talebi",     m: "Ekspertiz raporunun en kısa sürede sisteme yüklenmesini rica ederiz.", h: "Eksper" },
-                      { l: "Proforma Fatura Talebi",    m: "Maliyet teklifi ve fotoğraflı hasar formunun tarafımıza iletilmesini rica ederiz.", h: "Onarım Merkezi" },
-                      { l: "Sigorta Onay Takibi",       m: "Proforma teklifin onaylanmasını bekliyoruz. Güncel durumu paylaşır mısınız?", h: "Sigorta Şirketi" },
-                      { l: "Araç Sahibi Bilgilendirme", m: "Sayın Müşterimiz, aracınızın ekspertiz aşaması tamamlandı. Onarım yakında başlayacak.", h: "Araç Sahibi" },
-                    ].map(s => (
-                      <button key={s.l} onClick={() => { setMesajMetin(s.m); setHedef(s.h); }} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", color: "#94A3B8", borderRadius: 8, padding: "10px 12px", fontSize: 11, cursor: "pointer", textAlign: "left", lineHeight: 1.5 }}>
-                        <div style={{ fontWeight: 700, color: "#CBD5E1", fontSize: 12, marginBottom: 2 }}>{s.l}</div>
-                        <div style={{ fontSize: 10, color: TC[s.h].renk }}>→ {s.h}</div>
-                      </button>
-                    ))}
-                  </div>
-                </Card>
-              </div>
-            )}
-
-            {/* ── SMS ── */}
-            {tab === "sms" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                <Card>
-                  <SecTitle>📱 Otomatik SMS Ayarları</SecTitle>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "13px 14px", background: smsAktif ? "rgba(79,70,229,0.07)" : "rgba(255,255,255,0.02)", border: `1px solid ${smsAktif ? "rgba(79,70,229,0.25)" : "rgba(255,255,255,0.07)"}`, borderRadius: 10, marginBottom: 14 }}>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2 }}>Günlük SMS Bildirimi</div>
-                      <div style={{ fontSize: 11, color: "#64748B" }}>Araç sahibine otomatik durum SMS'i</div>
-                    </div>
-                    <label className="toggle"><input type="checkbox" checked={smsAktif} onChange={e => setSmsAktif(e.target.checked)} /><span className="slider"></span></label>
-                  </div>
-                  <div style={{ padding: "11px 13px", background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.18)", borderRadius: 9, marginBottom: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontSize: 10, color: "#F59E0B", fontWeight: 700, marginBottom: 2 }}>ALICI</div>
-                      <div style={{ fontWeight: 700, fontSize: 13 }}>{DOSYA.sahip.ad}</div>
-                      <div style={{ fontSize: 12, color: "#94A3B8", fontFamily: "'JetBrains Mono',monospace" }}>{DOSYA.sahip.telefon}</div>
-                    </div>
-                    <Chip renk="#F59E0B">📱 SMS</Chip>
-                  </div>
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 11, color: "#64748B", fontWeight: 600, marginBottom: 10 }}>GÖNDERIM SAATİ</div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {["08:00", "09:00", "10:00", "11:00", "14:00", "17:00"].map(s => (
-                        <button key={s} onClick={() => setSmsSaati(s)} style={{ padding: "8px 14px", borderRadius: 7, border: "none", background: smsSaati === s ? "rgba(79,70,229,0.25)" : "rgba(255,255,255,0.04)", color: smsSaati === s ? "#818CF8" : "#64748B", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'JetBrains Mono',monospace", borderWidth: 1, borderStyle: "solid", borderColor: smsSaati === s ? "rgba(79,70,229,0.4)" : "rgba(255,255,255,0.08)" }}>{s}</button>
-                      ))}
-                    </div>
-                  </div>
-                  <div style={{ marginBottom: 14 }}>
-                    <div style={{ fontSize: 11, color: "#64748B", fontWeight: 600, marginBottom: 10 }}>MESAJ TÜRÜ</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      <button onClick={() => { setSmsModu("otomatik"); setDuzenlemeAcik(false); }} style={{ padding: "12px", borderRadius: 9, border: "none", background: smsModu === "otomatik" ? "rgba(79,70,229,0.15)" : "rgba(255,255,255,0.03)", color: smsModu === "otomatik" ? "#818CF8" : "#64748B", cursor: "pointer", textAlign: "left", borderWidth: 1, borderStyle: "solid", borderColor: smsModu === "otomatik" ? "rgba(79,70,229,0.3)" : "rgba(255,255,255,0.07)" }}>
-                        <div style={{ fontSize: 18, marginBottom: 4 }}>🤖</div>
-                        <div style={{ fontWeight: 700, fontSize: 12 }}>Otomatik</div>
-                        <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>Adıma göre içerik</div>
-                      </button>
-                      <button onClick={() => setSmsModu("ozel")} style={{ padding: "12px", borderRadius: 9, border: "none", background: smsModu === "ozel" ? "rgba(245,158,11,0.12)" : "rgba(255,255,255,0.03)", color: smsModu === "ozel" ? "#F59E0B" : "#64748B", cursor: "pointer", textAlign: "left", borderWidth: 1, borderStyle: "solid", borderColor: smsModu === "ozel" ? "rgba(245,158,11,0.3)" : "rgba(255,255,255,0.07)" }}>
-                        <div style={{ fontSize: 18, marginBottom: 4 }}>✏️</div>
-                        <div style={{ fontWeight: 700, fontSize: 12 }}>Özel Mesaj</div>
-                        <div style={{ fontSize: 10, color: "#475569", marginTop: 2 }}>Danışman yazar</div>
-                      </button>
-                    </div>
-                  </div>
-                  {smsModu === "otomatik" && (
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                        <span style={{ fontSize: 11, color: "#64748B", fontWeight: 600 }}>BUGÜNKÜ MESAJ</span>
-                        <button onClick={() => { setDuzenlemeAcik(!duzenlemAcik); setDuzenlenMetin(otomatikMesaj); }} style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#94A3B8", borderRadius: 6, padding: "3px 10px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>{duzenlemAcik ? "✓ Onayla" : "✏️ Düzenle"}</button>
-                      </div>
-                      {duzenlemAcik
-                        ? <textarea value={duzenlenMetin} onChange={e => setDuzenlenMetin(e.target.value)} style={{ width: "100%", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(79,70,229,0.3)", borderRadius: 8, color: "#E2E8F0", padding: 12, fontSize: 12, resize: "none", minHeight: 90, lineHeight: 1.6 }} />
-                        : <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8, padding: 12, fontSize: 12, color: "#94A3B8", lineHeight: 1.7 }}>{otomatikMesaj}</div>
-                      }
-                      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
-                        <span style={{ fontSize: 10, color: "#475569" }}>Adım: <span style={{ color: "#818CF8" }}>{aktifAdim}</span></span>
-                        <span style={{ fontSize: 10, color: "#475569", fontFamily: "'JetBrains Mono',monospace" }}>{onizlemeMesaji.length} kr</span>
-                      </div>
-                    </div>
-                  )}
-                  {smsModu === "ozel" && (
-                    <div style={{ marginBottom: 16 }}>
-                      <div style={{ fontSize: 11, color: "#64748B", fontWeight: 600, marginBottom: 8 }}>ÖZEL MESAJ</div>
-                      <textarea value={ozelMesaj} onChange={e => setOzelMesaj(e.target.value)} placeholder="Özel mesaj yazın..." style={{ width: "100%", background: "rgba(255,255,255,0.03)", border: "1px solid rgba(245,158,11,0.25)", borderRadius: 8, color: "#E2E8F0", padding: 12, fontSize: 12, resize: "none", minHeight: 90, lineHeight: 1.6 }} />
-                    </div>
-                  )}
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={smsGonder} disabled={smsGonderiliyor || !smsAktif} style={{ flex: 1, background: smsGonderildi ? "#10B981" : smsGonderiliyor ? "rgba(79,70,229,0.4)" : "#4F46E5", border: "none", color: "#fff", borderRadius: 9, padding: "13px", fontSize: 13, fontWeight: 700, cursor: smsGonderiliyor || !smsAktif ? "not-allowed" : "pointer" }}>
-                      {smsGonderiliyor ? <span style={{ animation: "pulse 0.8s infinite" }}>⏳ Gönderiliyor...</span> : smsGonderildi ? "✓ İletildi!" : "📤 Şimdi Gönder"}
-                    </button>
-                    <button style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#64748B", borderRadius: 9, padding: "13px 16px", fontSize: 12, cursor: "pointer" }}>⏰</button>
-                  </div>
-                  {!smsAktif && <div style={{ marginTop: 8, fontSize: 11, color: "#EF4444", textAlign: "center" }}>⚠ SMS devre dışı. Yukarıdan aktif edin.</div>}
-                </Card>
-
-                <div style={{ background: "rgba(79,70,229,0.06)", border: "1px solid rgba(79,70,229,0.2)", borderRadius: 12, padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 10, color: "#818CF8", fontWeight: 700, marginBottom: 4 }}>⏰ SONRAKI GÖNDERIM</div>
-                    <div style={{ fontSize: 22, fontWeight: 800 }}>{smsSaati}</div>
-                    <div style={{ fontSize: 11, color: "#64748B" }}>Yarın · {SMS_SABLONLARI[aktifAdim]?.baslik}</div>
-                  </div>
-                  {smsAktif
-                    ? <div style={{ fontSize: 11, color: "#4F46E5", display: "flex", gap: 6, alignItems: "center" }}><div style={{ width: 7, height: 7, borderRadius: "50%", background: "#4F46E5", animation: "pulse 1.5s infinite" }} />Aktif</div>
-                    : <div style={{ fontSize: 11, color: "#EF4444" }}>⚠ Pasif</div>}
-                </div>
-
-                <Card>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>📜 SMS Geçmişi</div>
-                    <Chip renk="#4F46E5">{smsMesajlar.filter(m => m.durum === "iletildi").length} iletildi</Chip>
-                  </div>
-                  {smsMesajlar.map(sms => {
-                    const sb = SMS_SABLONLARI[sms.sablon];
-                    return (
-                      <div key={sms.id} style={{ padding: "11px 13px", background: sms.durum === "iletildi" ? "rgba(16,185,129,0.04)" : "rgba(245,158,11,0.05)", border: `1px solid ${sms.durum === "iletildi" ? "rgba(16,185,129,0.15)" : "rgba(245,158,11,0.2)"}`, borderRadius: 9, marginBottom: 8 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                            <span style={{ fontSize: 14 }}>{sb?.ikon || "📱"}</span>
-                            <div>
-                              <div style={{ fontWeight: 700, fontSize: 12, color: sb?.renk || "#94A3B8" }}>{sb?.baslik}</div>
-                              <div style={{ fontSize: 10, color: "#475569", fontFamily: "'JetBrains Mono',monospace" }}>{sms.tarih} · {sms.saat}</div>
-                            </div>
-                          </div>
-                          <Chip renk={sms.durum === "iletildi" ? "#10B981" : "#F59E0B"} sm>{sms.durum === "iletildi" ? "✓ İletildi" : "⏳ Bekliyor"}</Chip>
-                        </div>
-                        <div style={{ fontSize: 10, color: "#475569" }}>📞 {sms.alici} · {sms.n} kr</div>
-                      </div>
-                    );
-                  })}
-                </Card>
+                );})}
               </div>
             )}
           </div>
+        )}
 
-          {/* MOBİL BOTTOM NAV */}
-          {isMobile && (
-            <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: "#111827", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", zIndex: 100, paddingBottom: "env(safe-area-inset-bottom)" }}>
-              {TABS.map(t => (
-                <button key={t.id} onClick={() => setTab(t.id)} style={{ flex: 1, background: "none", border: "none", padding: "8px 2px 10px", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 2, position: "relative" }}>
-                  <span style={{ fontSize: 18 }}>{t.mIcon}</span>
-                  <span style={{ fontSize: 8, fontWeight: tab === t.id ? 700 : 500, color: tab === t.id ? "#818CF8" : "#475569" }}>{t.label}</span>
-                  {tab === t.id && <div style={{ position: "absolute", top: 0, left: "20%", right: "20%", height: 2, background: "#4F46E5", borderRadius: "0 0 2px 2px" }} />}
-                  {t.badge && eksik.length > 0 && <div style={{ position: "absolute", top: 5, right: "calc(50% - 16px)", background: "#EF4444", color: "#fff", borderRadius: "50%", width: 13, height: 13, fontSize: 7, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{eksik.length}</div>}
-                  {t.photoBadge && photos.length > 0 && <div style={{ position: "absolute", top: 5, right: "calc(50% - 20px)", background: "#3B82F6", color: "#fff", borderRadius: 3, padding: "0 3px", fontSize: 7, fontWeight: 800 }}>{photos.length}</div>}
-                  {t.sms && smsAktif && <div style={{ position: "absolute", top: 7, right: "calc(50% - 18px)", width: 6, height: 6, borderRadius: "50%", background: "#4F46E5" }} />}
+        {tab==="iletisim"&&(
+          <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
+            <Card style={{ display:"flex",flexDirection:"column",padding:0,overflow:"hidden" }}>
+              <div style={{ padding:"14px 16px",borderBottom:"1px solid rgba(255,255,255,0.06)",fontWeight:700,fontSize:13 }}>💬 Mesajlar</div>
+              <div style={{ overflow:"auto",padding:"14px 16px",display:"flex",flexDirection:"column",gap:10,maxHeight:360 }}>
+                {mesajlar.map(m=>{ const benden=m.gonderen==="Danışman"; const gc=TC_CONFIG[m.gonderen]||TC_CONFIG["Danışman"]; const hc=TC_CONFIG[m.hedef]||TC_CONFIG["Danışman"]; return (
+                  <div key={m.id} style={{ display:"flex",flexDirection:"column",alignItems:benden?"flex-end":"flex-start" }}>
+                    <div style={{ display:"flex",gap:5,marginBottom:4,alignItems:"center",flexWrap:"wrap",justifyContent:benden?"flex-end":"flex-start" }}>
+                      <span style={{ fontSize:11,fontWeight:700,color:gc.renk }}>{gc.icon} {m.gonderen}</span>
+                      <span style={{ color:"#334155" }}>→</span>
+                      <span style={{ fontSize:11,fontWeight:700,color:hc.renk }}>{hc.icon} {m.hedef}</span>
+                      <span style={{ fontSize:10,color:"#475569",fontFamily:"'JetBrains Mono',monospace" }}>{m.tarih}</span>
+                    </div>
+                    <div style={{ maxWidth:"82%",padding:"10px 13px",borderRadius:10,background:benden?"rgba(79,70,229,0.18)":"rgba(255,255,255,0.04)",border:`1px solid ${benden?"rgba(79,70,229,0.28)":"rgba(255,255,255,0.07)"}`,fontSize:13,color:"#CBD5E1",lineHeight:1.6 }}>{m.mesaj}</div>
+                  </div>
+                );})}
+              </div>
+              <div style={{ padding:"12px 16px",borderTop:"1px solid rgba(255,255,255,0.06)" }}>
+                <div style={{ display:"flex",gap:6,marginBottom:10,flexWrap:"wrap" }}>
+                  {Object.keys(TC_CONFIG).filter(k=>k!=="Danışman").map(t=>(
+                    <button key={t} onClick={()=>setHedef(t)} style={{ padding:"5px 10px",borderRadius:6,border:"none",background:hedef===t?`${TC_CONFIG[t].renk}20`:"rgba(255,255,255,0.04)",color:hedef===t?TC_CONFIG[t].renk:"#64748B",fontSize:11,fontWeight:600,cursor:"pointer",borderWidth:1,borderStyle:"solid",borderColor:hedef===t?`${TC_CONFIG[t].renk}35`:"rgba(255,255,255,0.07)" }}>{TC_CONFIG[t].icon} {isMobile?"":t}</button>
+                  ))}
+                </div>
+                <div style={{ display:"flex",gap:8 }}>
+                  <textarea value={mesajMetin} onChange={e=>setMesajMetin(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); gonder(); }}} placeholder={`${hedef}'e mesaj...`} style={{ flex:1,background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.08)",borderRadius:8,color:"#E2E8F0",padding:"10px 12px",fontSize:13,resize:"none",minHeight:44,maxHeight:90 }}/>
+                  <button onClick={gonder} style={{ background:"#4F46E5",border:"none",color:"#fff",borderRadius:8,padding:"0 16px",fontSize:18,flexShrink:0 }}>→</button>
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {tab==="sms"&&(
+          <div style={{ display:"flex",flexDirection:"column",gap:14 }}>
+            <Card>
+              <SecTitle>📱 Otomatik SMS Ayarları</SecTitle>
+              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"13px 14px",background:smsAktif?"rgba(79,70,229,0.07)":"rgba(255,255,255,0.02)",border:`1px solid ${smsAktif?"rgba(79,70,229,0.25)":"rgba(255,255,255,0.07)"}`,borderRadius:10,marginBottom:14 }}>
+                <div><div style={{ fontWeight:700,fontSize:13,marginBottom:2 }}>Günlük SMS Bildirimi</div><div style={{ fontSize:11,color:"#64748B" }}>Araç sahibine otomatik durum SMS'i</div></div>
+                <label className="toggle"><input type="checkbox" checked={smsAktif} onChange={e=>setSmsAktif(e.target.checked)}/><span className="slider"></span></label>
+              </div>
+              <div style={{ padding:"11px 13px",background:"rgba(245,158,11,0.06)",border:"1px solid rgba(245,158,11,0.18)",borderRadius:9,marginBottom:14,display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                <div><div style={{ fontSize:10,color:"#F59E0B",fontWeight:700,marginBottom:2 }}>ALICI</div><div style={{ fontWeight:700,fontSize:13 }}>{DOSYA.sahip.ad}</div><div style={{ fontSize:12,color:"#94A3B8",fontFamily:"'JetBrains Mono',monospace" }}>{DOSYA.sahip.telefon}</div></div>
+                <Chip renk="#F59E0B">📱 SMS</Chip>
+              </div>
+              <div style={{ marginBottom:16 }}>
+                <div style={{ fontSize:11,color:"#64748B",fontWeight:600,marginBottom:10 }}>GÖNDERIM SAATİ</div>
+                <div style={{ display:"flex",gap:8,flexWrap:"wrap" }}>
+                  {["08:00","09:00","10:00","11:00","14:00","17:00"].map(s=>(
+                    <button key={s} onClick={()=>setSmsSaati(s)} style={{ padding:"8px 14px",borderRadius:7,border:"none",background:smsSaati===s?"rgba(79,70,229,0.25)":"rgba(255,255,255,0.04)",color:smsSaati===s?"#818CF8":"#64748B",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'JetBrains Mono',monospace",borderWidth:1,borderStyle:"solid",borderColor:smsSaati===s?"rgba(79,70,229,0.4)":"rgba(255,255,255,0.08)" }}>{s}</button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:8,padding:12,fontSize:12,color:"#94A3B8",lineHeight:1.7,marginBottom:14 }}>{otomatikMesaj}</div>
+              <div style={{ display:"flex",gap:8 }}>
+                <button onClick={smsGonder} disabled={smsGonderiliyor||!smsAktif} style={{ flex:1,background:smsGonderildi?"#10B981":smsGonderiliyor?"rgba(79,70,229,0.4)":"#4F46E5",border:"none",color:"#fff",borderRadius:9,padding:"13px",fontSize:13,fontWeight:700,cursor:smsGonderiliyor||!smsAktif?"not-allowed":"pointer" }}>
+                  {smsGonderiliyor?<span style={{ animation:"pulse 0.8s infinite" }}>⏳ Gönderiliyor...</span>:smsGonderildi?"✓ İletildi!":"📤 Şimdi Gönder"}
                 </button>
-              ))}
-            </div>
-          )}
+              </div>
+            </Card>
+            <Card>
+              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14 }}>
+                <div style={{ fontWeight:700,fontSize:13 }}>📜 SMS Geçmişi</div>
+                <Chip renk="#4F46E5">{smsMesajlar.filter(m=>m.durum==="iletildi").length} iletildi</Chip>
+              </div>
+              {smsMesajlar.map(sms=>{ const sb=SMS_SABLONLARI[sms.sablon]; return (
+                <div key={sms.id} style={{ padding:"11px 13px",background:sms.durum==="iletildi"?"rgba(16,185,129,0.04)":"rgba(245,158,11,0.05)",border:`1px solid ${sms.durum==="iletildi"?"rgba(16,185,129,0.15)":"rgba(245,158,11,0.2)"}`,borderRadius:9,marginBottom:8 }}>
+                  <div style={{ display:"flex",justifyContent:"space-between",marginBottom:4 }}>
+                    <div style={{ display:"flex",gap:8,alignItems:"center" }}>
+                      <span style={{ fontSize:14 }}>{sb?.ikon||"📱"}</span>
+                      <div><div style={{ fontWeight:700,fontSize:12,color:sb?.renk||"#94A3B8" }}>{sb?.baslik}</div><div style={{ fontSize:10,color:"#475569",fontFamily:"'JetBrains Mono',monospace" }}>{sms.tarih} · {sms.saat}</div></div>
+                    </div>
+                    <Chip renk={sms.durum==="iletildi"?"#10B981":"#F59E0B"} sm>{sms.durum==="iletildi"?"✓ İletildi":"⏳ Bekliyor"}</Chip>
+                  </div>
+                </div>
+              );})}
+            </Card>
+          </div>
+        )}
+      </div>
 
-          {/* LIGHTBOX */}
-          {lightboxFoto && (
-            <Lightbox
-              foto={lightboxFoto}
-              onClose={() => setLightboxFoto(null)}
-              onPrev={() => setLightboxFoto(filtreliPhotos[lbIdx - 1])}
-              onNext={() => setLightboxFoto(filtreliPhotos[lbIdx + 1])}
-              hasPrev={lbIdx > 0}
-              hasNext={lbIdx < filtreliPhotos.length - 1}
-            />
-          )}
+      {/* Mobil nav */}
+      {isMobile&&(
+        <div style={{ position:"fixed",bottom:0,left:0,right:0,background:"#111827",borderTop:"1px solid rgba(255,255,255,0.08)",display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom)" }}>
+          {TABS.map(t=>(
+            <button key={t.id} onClick={()=>setTab(t.id)} style={{ flex:1,background:"none",border:"none",padding:"8px 2px 10px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:2,position:"relative" }}>
+              <span style={{ fontSize:18 }}>{t.mIcon}</span>
+              <span style={{ fontSize:8,fontWeight:tab===t.id?700:500,color:tab===t.id?"#818CF8":"#475569" }}>{t.label}</span>
+              {tab===t.id&&<div style={{ position:"absolute",top:0,left:"20%",right:"20%",height:2,background:"#4F46E5",borderRadius:"0 0 2px 2px" }}/>}
+              {t.badge&&eksik.length>0&&<div style={{ position:"absolute",top:5,right:"calc(50% - 16px)",background:"#EF4444",color:"#fff",borderRadius:"50%",width:13,height:13,fontSize:7,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"center" }}>{eksik.length}</div>}
+              {t.photoBadge&&photos.length>0&&<div style={{ position:"absolute",top:5,right:"calc(50% - 20px)",background:"#3B82F6",color:"#fff",borderRadius:3,padding:"0 3px",fontSize:7,fontWeight:800 }}>{photos.length}</div>}
+            </button>
+          ))}
         </div>
-      );
-    }
+      )}
 
-    ReactDOM.createRoot(document.getElementById("root")).render(<Panel />);
+      {lightboxFoto&&(
+        <Lightbox foto={lightboxFoto} onClose={()=>setLightboxFoto(null)} onPrev={()=>setLightboxFoto(filtreliPhotos[lbIdx-1])} onNext={()=>setLightboxFoto(filtreliPhotos[lbIdx+1])} hasPrev={lbIdx>0} hasNext={lbIdx<filtreliPhotos.length-1}/>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// ANA UYGULAMA — ROUTER
+// ════════════════════════════════════════════════════════════════
+function App() {
+  const [ekran, setEkran] = useState("rolsecim"); // rolsecim | danisman-giris | acente-giris | musteri-giris | danisman | acente | musteri
+
+  return (
+    <>
+      {ekran==="rolsecim" && <RolSecim onRol={r=>setEkran(`${r}-giris`)}/>}
+      {ekran==="danisman-giris" && <DanismanGiris onGiris={()=>setEkran("danisman")} onGeri={()=>setEkran("rolsecim")}/>}
+      {ekran==="acente-giris"   && <AcenteGiris   onGiris={()=>setEkran("acente")}   onGeri={()=>setEkran("rolsecim")}/>}
+      {ekran==="musteri-giris"  && <MusteriGiris  onGiris={()=>setEkran("musteri")}  onGeri={()=>setEkran("rolsecim")}/>}
+      {ekran==="danisman" && <DanismanPanel onCikis={()=>setEkran("rolsecim")}/>}
+      {ekran==="acente"   && <AcentePanel   onCikis={()=>setEkran("rolsecim")}/>}
+      {ekran==="musteri"  && <MusteriPanel  onCikis={()=>setEkran("rolsecim")}/>}
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
   </script>
 </body>
 </html>

@@ -260,6 +260,351 @@ function SmsToast({toast,onKapat}){
   );
 }
 
+
+// ── YENİ DOSYA SİHİRBAZI ────────────────────────────────────────────────────
+function YeniDosyaWizard({onKapat,onKaydet}){
+  const [adim,setAdim]=useState(1);
+  const [ruhsatImg,setRuhsatImg]=useState(null);
+  const [tarama,setTarama]=useState(false);
+  const [taramaOk,setTaramaOk]=useState(false);
+  const [taramaHata,setTaramaHata]=useState(false);
+  const [belgeler,setBelgeler]=useState([]);
+  const [fotoğraflar,setFotograflar]=useState([]);
+  const [kayitOk,setKayitOk]=useState(false);
+  const ruhsatRef=useRef();
+  const belgeRef=useRef();
+  const fotoRef=useRef();
+  const [isMobile,setIsMobile]=useState(false);
+  useEffect(()=>{const c=()=>setIsMobile(window.innerWidth<768);c();window.addEventListener("resize",c);return()=>window.removeEventListener("resize",c);},[]);
+
+  const [form,setForm]=useState({
+    plaka:"",saseNo:"",motorNo:"",marka:"",model:"",yil:"",ruhsatSeriNo:"",renk:"",
+    sahipAd:"",tc:"",telefon:"",email:"",
+    acente:"",sigortaSirketi:"",bransi:"",muallakHasar:"",policeNo:"",hasarNo:"",teminat:"",muafiyet:"",
+    kazaTarihi:"",kazaAciklama:"",
+  });
+  const sf=(k,v)=>setForm(p=>({...p,[k]:v}));
+
+  const ruhsatTara=async()=>{
+    if(!ruhsatImg)return;
+    setTarama(true);setTaramaHata(false);setTaramaOk(false);
+    try{
+      const resp=await fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          model:"claude-sonnet-4-20250514",
+          max_tokens:800,
+          messages:[{
+            role:"user",
+            content:[
+              {type:"image",source:{type:"base64",media_type:"image/jpeg",data:ruhsatImg.split(",")[1]}},
+              {type:"text",text:'Bu bir Türk araç tescil belgesi (ruhsat) veya benzer bir araç belgesidir. Belgedeki bilgileri tespit ederek aşağıdaki JSON formatında döndür. Bulunamayan alanlar için boş string kullan. Sadece JSON döndür, başka hiçbir şey yazma:\n{"plaka":"","saseNo":"","motorNo":"","marka":"","model":"","yil":"","ruhsatSeriNo":"","sahipAd":"","renk":""}'}
+            ]
+          }]
+        })
+      });
+      const data=await resp.json();
+      const text=data.content?.find(b=>b.type==="text")?.text||"";
+      const clean=text.replace(/```json|```/g,"").trim();
+      const parsed=JSON.parse(clean);
+      setForm(p=>({...p,
+        plaka:parsed.plaka||p.plaka,saseNo:parsed.saseNo||p.saseNo,motorNo:parsed.motorNo||p.motorNo,
+        marka:parsed.marka||p.marka,model:parsed.model||p.model,yil:parsed.yil||p.yil,
+        ruhsatSeriNo:parsed.ruhsatSeriNo||p.ruhsatSeriNo,sahipAd:parsed.sahipAd||p.sahipAd,renk:parsed.renk||p.renk,
+      }));
+      setTaramaOk(true);
+    }catch(e){setTaramaHata(true);}
+    finally{setTarama(false);}
+  };
+
+  const handleRuhsat=(files)=>{
+    const f=files[0];if(!f)return;
+    const r=new FileReader();
+    r.onload=e=>{setRuhsatImg(e.target.result);setTaramaOk(false);};
+    r.readAsDataURL(f);
+  };
+
+  const handleBelge=(files)=>{
+    Array.from(files).forEach(f=>{
+      const r=new FileReader();
+      r.onload=e=>setBelgeler(p=>[...p,{id:Date.now()+Math.random(),ad:f.name,url:e.target.result,boyut:(f.size/1048576).toFixed(1)+" MB",tip:"belge"}]);
+      r.readAsDataURL(f);
+    });
+  };
+
+  const handleFoto=(files)=>{
+    Array.from(files).filter(f=>f.type.startsWith("image/")).forEach(f=>{
+      const r=new FileReader();
+      r.onload=e=>setFotograflar(p=>[...p,{id:Date.now()+Math.random(),url:e.target.result,etiket:f.name.replace(/\.[^.]+$/,""),kategori:"kaza",tarih:new Date().toLocaleDateString("tr-TR"),yukleyen:"Danışman",boyut:(f.size/1048576).toFixed(1)+" MB"}]);
+      r.readAsDataURL(f);
+    });
+  };
+
+  const kaydet=()=>{
+    setKayitOk(true);
+    setTimeout(()=>{
+      onKaydet({form,belgeler,fotograflar:fotoğraflar});
+      onKapat();
+    },1500);
+  };
+
+  const ADIMLAR=[
+    {n:1,label:"Ruhsat",ikon:"📄"},
+    {n:2,label:"Araç & Müşteri",ikon:"🚗"},
+    {n:3,label:"Sigorta & Kaza",ikon:"🏦"},
+    {n:4,label:"Belgeler",ikon:"📎"},
+    {n:5,label:"Özet",ikon:"✅"},
+  ];
+
+  const inputSt={width:"100%",background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",borderRadius:9,color:"#E2E8F0",padding:"11px 13px",fontSize:13};
+  const labelSt={fontSize:11,color:"#64748B",fontWeight:600,marginBottom:6,display:"block"};
+  const gridSt={display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:14};
+
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:200,display:"flex",alignItems:"flex-start",justifyContent:"center",padding:isMobile?"0":"24px",overflowY:"auto"}}>
+      <div style={{background:"#0D1117",border:"1px solid rgba(255,255,255,0.1)",borderRadius:isMobile?0:16,width:"100%",maxWidth:680,minHeight:isMobile?"100vh":"auto",display:"flex",flexDirection:"column",animation:"popIn .25s ease"}}>
+
+        {/* Header */}
+        <div style={{background:"#111827",borderBottom:"1px solid rgba(255,255,255,0.07)",borderRadius:isMobile?"0":"16px 16px 0 0",padding:"16px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:34,height:34,borderRadius:8,background:"linear-gradient(135deg,#1E40AF,#4F46E5)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16}}>📁</div>
+            <div><div style={{fontWeight:800,fontSize:15}}>Yeni Hasar Dosyası</div><div style={{fontSize:11,color:"#475569"}}>Adım {adim} / 5</div></div>
+          </div>
+          <button onClick={onKapat} style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",color:"#94A3B8",borderRadius:"50%",width:32,height:32,fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+        </div>
+
+        {/* Adım göstergesi */}
+        <div style={{padding:"14px 20px",background:"#111827",borderBottom:"1px solid rgba(255,255,255,0.05)",display:"flex",gap:4}}>
+          {ADIMLAR.map(a=>(
+            <div key={a.n} onClick={()=>a.n<adim&&setAdim(a.n)} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:5,cursor:a.n<adim?"pointer":"default"}}>
+              <div style={{width:"100%",height:3,borderRadius:2,background:adim>=a.n?"#4F46E5":"rgba(255,255,255,0.08)",transition:"background .3s"}}/>
+              <div style={{fontSize:9,color:adim===a.n?"#818CF8":adim>a.n?"#10B981":"#334155",fontWeight:adim===a.n?700:500,textAlign:"center",whiteSpace:"nowrap"}}>{a.n===adim||!isMobile?`${a.ikon} ${a.label}`:a.ikon}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* İçerik */}
+        <div style={{flex:1,overflow:"auto",padding:20}}>
+
+          {/* ── ADIM 1: RUHSAT TARAMA ── */}
+          {adim===1&&(
+            <div style={{display:"flex",flexDirection:"column",gap:16}}>
+              <div style={{padding:"12px 16px",background:"rgba(79,70,229,0.07)",border:"1px solid rgba(79,70,229,0.2)",borderRadius:10,fontSize:13,color:"#94A3B8",lineHeight:1.7}}>
+                🤖 <strong style={{color:"#818CF8"}}>AI Ruhsat Taraması</strong> — Araç tescil belgesinin fotoğrafını yükleyin. Claude yapay zeka motoru, belgedeki plaka, şase no, motor no, marka/model gibi bilgileri otomatik olarak okuyup forma aktaracak.
+              </div>
+
+              {/* Ruhsat yükleme alanı */}
+              <div onClick={()=>ruhsatRef.current?.click()} onDragOver={e=>{e.preventDefault();}} onDrop={e=>{e.preventDefault();handleRuhsat(e.dataTransfer.files);}} style={{border:`2px dashed ${ruhsatImg?"rgba(79,70,229,0.5)":"rgba(255,255,255,0.15)"}`,borderRadius:12,padding:ruhsatImg?"0":"32px",textAlign:"center",cursor:"pointer",background:ruhsatImg?"#0D1117":"rgba(255,255,255,0.02)",position:"relative",overflow:"hidden",minHeight:180}}>
+                <input ref={ruhsatRef} type="file" accept="image/*" onChange={e=>handleRuhsat(e.target.files)} style={{display:"none"}}/>
+                {ruhsatImg?(
+                  <div>
+                    <img src={ruhsatImg} alt="Ruhsat" style={{width:"100%",maxHeight:260,objectFit:"contain",display:"block",borderRadius:10}}/>
+                    <div style={{position:"absolute",top:8,right:8,display:"flex",gap:6}}>
+                      <button onClick={e=>{e.stopPropagation();setRuhsatImg(null);setTaramaOk(false);}} style={{background:"rgba(239,68,68,0.85)",border:"none",color:"#fff",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700}}>✕ Kaldır</button>
+                    </div>
+                    {taramaOk&&<div style={{position:"absolute",top:8,left:8,background:"rgba(16,185,129,0.9)",color:"#fff",borderRadius:6,padding:"4px 10px",fontSize:11,fontWeight:700}}>✓ Veriler çekildi</div>}
+                  </div>
+                ):(
+                  <div>
+                    <div style={{fontSize:48,marginBottom:12}}>📄</div>
+                    <div style={{fontWeight:700,fontSize:14,color:"#818CF8",marginBottom:6}}>Ruhsat fotoğrafını buraya sürükleyin</div>
+                    <div style={{fontSize:12,color:"#475569",marginBottom:16}}>veya tıklayarak seçin · JPG, PNG</div>
+                    <button style={{background:"rgba(79,70,229,0.2)",border:"1px solid rgba(79,70,229,0.4)",color:"#818CF8",borderRadius:9,padding:"10px 20px",fontSize:13,fontWeight:700}}>📷 Fotoğraf Seç</button>
+                  </div>
+                )}
+              </div>
+
+              {ruhsatImg&&!taramaOk&&(
+                <button onClick={ruhsatTara} disabled={tarama} style={{background:tarama?"rgba(79,70,229,0.4)":"#4F46E5",border:"none",color:"#fff",borderRadius:10,padding:"14px",fontSize:14,fontWeight:800,cursor:tarama?"not-allowed":"pointer"}}>
+                  {tarama?(
+                    <span style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+                      <span style={{width:18,height:18,border:"2px solid rgba(255,255,255,0.3)",borderTop:"2px solid #fff",borderRadius:"50%",display:"inline-block",animation:"spin .7s linear infinite"}}/>
+                      Claude verileri okuyor...
+                    </span>
+                  ):"🤖 Verileri Otomatik Çek"}
+                </button>
+              )}
+
+              {taramaHata&&(
+                <div style={{padding:"11px 14px",background:"rgba(239,68,68,0.08)",border:"1px solid rgba(239,68,68,0.25)",borderRadius:9,fontSize:12,color:"#EF4444"}}>
+                  ⚠ Belge okunamadı. Lütfen daha net bir fotoğraf deneyin veya verileri elle girin.
+                </div>
+              )}
+
+              {taramaOk&&(
+                <div style={{padding:"12px 16px",background:"rgba(16,185,129,0.07)",border:"1px solid rgba(16,185,129,0.25)",borderRadius:10}}>
+                  <div style={{fontWeight:700,fontSize:13,color:"#10B981",marginBottom:10}}>✓ Otomatik Çekilen Veriler</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                    {[["Plaka",form.plaka],["Marka",form.marka],["Model",form.model],["Yıl",form.yil],["Şase No",form.saseNo],["Motor No",form.motorNo],["Ruhsat Seri No",form.ruhsatSeriNo],["Renk",form.renk]].filter(r=>r[1]).map(r=>(
+                      <div key={r[0]} style={{background:"rgba(255,255,255,0.03)",borderRadius:7,padding:"7px 10px"}}>
+                        <div style={{fontSize:9,color:"#475569",fontWeight:600}}>{r[0]}</div>
+                        <div style={{fontSize:12,fontWeight:600,color:"#CBD5E1",fontFamily:["Plaka","Şase No","Motor No","Ruhsat Seri No"].includes(r[0])?"'JetBrains Mono',monospace":"inherit"}}>{r[1]}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{fontSize:11,color:"#64748B",marginTop:10}}>Sonraki adımda tüm alanları kontrol edip düzenleyebilirsiniz.</div>
+                </div>
+              )}
+
+              <div style={{padding:"10px 14px",background:"rgba(255,255,255,0.02)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:9,fontSize:11,color:"#475569",textAlign:"center"}}>
+                Ruhsat yoksa veya taramayı atlamak istiyorsanız → <button onClick={()=>setAdim(2)} style={{background:"none",border:"none",color:"#818CF8",fontSize:11,cursor:"pointer",textDecoration:"underline"}}>Verileri Elle Gir</button>
+              </div>
+            </div>
+          )}
+
+          {/* ── ADIM 2: ARAÇ & MÜŞTERİ ── */}
+          {adim===2&&(
+            <div style={{display:"flex",flexDirection:"column",gap:20}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:13,marginBottom:14,display:"flex",alignItems:"center",gap:8}}>🚗 Araç Bilgileri {taramaOk&&<span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,background:"rgba(16,185,129,0.15)",color:"#10B981",border:"1px solid rgba(16,185,129,0.25)"}}>✓ Ruhsattan aktarıldı</span>}</div>
+                <div style={gridSt}>
+                  {[["Plaka","plaka","34 ABC 123",true],["Ruhsat Seri No","ruhsatSeriNo","AA123456",true],["Şase No","saseNo","JTDXXXXXXXXXXXXXXX",true],["Motor No","motorNo","1NZ-XXXXXXX",true],["Marka","marka","Toyota",false],["Model","model","Corolla 1.6",false],["Model Yılı","yil","2021",false],["Renk","renk","Sedef Beyaz",false]].map(([l,k,p,mono])=>(
+                    <div key={k}><label style={labelSt}>{l}</label><input type="text" value={form[k]} onChange={e=>sf(k,e.target.value)} placeholder={p} style={{...inputSt,fontFamily:mono?"'JetBrains Mono',monospace":"inherit"}}/></div>
+                  ))}
+                </div>
+              </div>
+              <div style={{borderTop:"1px solid rgba(255,255,255,0.06)",paddingTop:20}}>
+                <div style={{fontWeight:700,fontSize:13,marginBottom:14}}>👤 Araç Sahibi / Müşteri</div>
+                <div style={gridSt}>
+                  {[["Ad Soyad","sahipAd","Mehmet Yılmaz",false],["TC Kimlik No","tc","12345678901",true],["Telefon","telefon","0532 123 45 67",true],["E-posta","email","eposta@...",false]].map(([l,k,p,mono])=>(
+                    <div key={k}><label style={labelSt}>{l}</label><input type="text" value={form[k]} onChange={e=>sf(k,e.target.value)} placeholder={p} style={{...inputSt,fontFamily:mono?"'JetBrains Mono',monospace":"inherit"}}/></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── ADIM 3: SİGORTA & KAZA ── */}
+          {adim===3&&(
+            <div style={{display:"flex",flexDirection:"column",gap:20}}>
+              <div>
+                <div style={{fontWeight:700,fontSize:13,marginBottom:14}}>🏦 Sigorta Bilgileri</div>
+                <div style={gridSt}>
+                  {[["Yönlendiren Acente","acente","ABC Sigorta Acentesi",false],["Sigorta Şirketi","sigortaSirketi","AXA Sigorta A.Ş.",false],["Sigorta Branşı","bransi","Kasko",false],["Muallak Hasar Tutarı","muallakHasar","28.500 ₺",false],["Poliçe No","policeNo","POL-2024-XXXXX",true],["Hasar No","hasarNo","HAK-2024-XXXXX",true],["Teminat Türü","teminat","Kasko (Tam)",false],["Muafiyet","muafiyet","2.500 ₺",false]].map(([l,k,p,mono])=>(
+                    <div key={k}><label style={labelSt}>{l}</label><input type="text" value={form[k]} onChange={e=>sf(k,e.target.value)} placeholder={p} style={{...inputSt,fontFamily:mono?"'JetBrains Mono',monospace":"inherit"}}/></div>
+                  ))}
+                </div>
+              </div>
+              <div style={{borderTop:"1px solid rgba(255,255,255,0.06)",paddingTop:20}}>
+                <div style={{fontWeight:700,fontSize:13,marginBottom:14}}>🚨 Kaza Bilgileri</div>
+                <div style={{marginBottom:14}}><label style={labelSt}>Kaza Tarihi</label><input type="text" value={form.kazaTarihi} onChange={e=>sf("kazaTarihi",e.target.value)} placeholder="GG.AA.YYYY" style={inputSt}/></div>
+                <div><label style={labelSt}>Kaza Açıklaması</label><textarea value={form.kazaAciklama} onChange={e=>sf("kazaAciklama",e.target.value)} rows={4} placeholder="Kazanın nasıl gerçekleştiğini açıklayın..." style={{...inputSt,resize:"none",lineHeight:1.6}}/></div>
+              </div>
+            </div>
+          )}
+
+          {/* ── ADIM 4: BELGELER & FOTOĞRAFLAR ── */}
+          {adim===4&&(
+            <div style={{display:"flex",flexDirection:"column",gap:20}}>
+              {/* Belgeler */}
+              <div>
+                <div style={{fontWeight:700,fontSize:13,marginBottom:14}}>📎 Belgeler</div>
+                <div style={{fontSize:12,color:"#64748B",marginBottom:12}}>Kaza tespit tutanağı, ehliyet, ruhsat fotokopisi vb.</div>
+                <div onClick={()=>belgeRef.current?.click()} style={{border:"2px dashed rgba(79,70,229,0.3)",borderRadius:10,padding:"20px",textAlign:"center",cursor:"pointer",background:"rgba(79,70,229,0.03)",marginBottom:12}}>
+                  <input ref={belgeRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={e=>handleBelge(e.target.files)} style={{display:"none"}}/>
+                  <div style={{fontSize:28,marginBottom:8}}>📂</div>
+                  <div style={{fontWeight:600,fontSize:13,color:"#818CF8",marginBottom:4}}>Belge yükle</div>
+                  <div style={{fontSize:11,color:"#475569"}}>PDF, JPG, PNG</div>
+                </div>
+                {belgeler.length>0&&(
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    {belgeler.map(b=>(
+                      <div key={b.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.07)",borderRadius:8}}>
+                        <span style={{fontSize:16}}>📄</span>
+                        <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:600,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{b.ad}</div><div style={{fontSize:10,color:"#64748B"}}>{b.boyut}</div></div>
+                        <button onClick={()=>setBelgeler(p=>p.filter(x=>x.id!==b.id))} style={{background:"none",border:"none",color:"#EF4444",fontSize:16,cursor:"pointer"}}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Fotoğraflar */}
+              <div style={{borderTop:"1px solid rgba(255,255,255,0.06)",paddingTop:20}}>
+                <div style={{fontWeight:700,fontSize:13,marginBottom:14}}>📷 Hasar Fotoğrafları</div>
+                <div onClick={()=>fotoRef.current?.click()} style={{border:"2px dashed rgba(139,92,246,0.3)",borderRadius:10,padding:"20px",textAlign:"center",cursor:"pointer",background:"rgba(139,92,246,0.03)",marginBottom:12}}>
+                  <input ref={fotoRef} type="file" multiple accept="image/*" onChange={e=>handleFoto(e.target.files)} style={{display:"none"}}/>
+                  <div style={{fontSize:28,marginBottom:8}}>🖼️</div>
+                  <div style={{fontWeight:600,fontSize:13,color:"#A78BFA",marginBottom:4}}>Fotoğraf yükle</div>
+                  <div style={{fontSize:11,color:"#475569"}}>JPG, PNG, WEBP · Birden fazla seçilebilir</div>
+                </div>
+                {fotoğraflar.length>0&&(
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                    {fotoğraflar.map(f=>(
+                      <div key={f.id} style={{position:"relative",borderRadius:8,overflow:"hidden"}}>
+                        <img src={f.url} alt={f.etiket} style={{width:"100%",aspectRatio:"4/3",objectFit:"cover",display:"block"}}/>
+                        <button onClick={()=>setFotograflar(p=>p.filter(x=>x.id!==f.id))} style={{position:"absolute",top:4,right:4,background:"rgba(239,68,68,0.85)",border:"none",color:"#fff",borderRadius:"50%",width:22,height:22,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── ADIM 5: ÖZET ── */}
+          {adim===5&&(
+            <div style={{display:"flex",flexDirection:"column",gap:14}}>
+              {kayitOk?(
+                <div style={{textAlign:"center",padding:"40px 20px"}}>
+                  <div style={{fontSize:60,marginBottom:16}}>✅</div>
+                  <div style={{fontWeight:800,fontSize:22,marginBottom:8,color:"#10B981"}}>Dosya Oluşturuldu!</div>
+                  <div style={{fontSize:13,color:"#64748B"}}>Hasar dosyası sisteme kaydedildi, panel'e yönlendiriliyorsunuz...</div>
+                </div>
+              ):(
+                <>
+                  <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>Dosya Özeti</div>
+                  {[
+                    {baslik:"🚗 Araç",satirlar:[["Araç",`${form.marka} ${form.model} (${form.yil})`],["Plaka",form.plaka],["Şase No",form.saseNo],["Motor No",form.motorNo]]},
+                    {baslik:"👤 Müşteri",satirlar:[["Ad Soyad",form.sahipAd],["TC",form.tc],["Telefon",form.telefon]]},
+                    {baslik:"🏦 Sigorta",satirlar:[["Acente",form.acente],["Şirket",form.sigortaSirketi],["Branş",form.bransi],["Muallak",form.muallakHasar],["Poliçe",form.policeNo]]},
+                    {baslik:"🚨 Kaza",satirlar:[["Tarih",form.kazaTarihi],["Açıklama",form.kazaAciklama]]},
+                  ].map(grup=>(
+                    <div key={grup.baslik} style={{background:"#161B26",border:"1px solid rgba(255,255,255,0.06)",borderRadius:10,padding:"14px 16px"}}>
+                      <div style={{fontWeight:700,fontSize:12,marginBottom:10,color:"#94A3B8"}}>{grup.baslik}</div>
+                      {grup.satirlar.filter(s=>s[1]).map(s=>(
+                        <div key={s[0]} style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:"1px solid rgba(255,255,255,0.04)"}}>
+                          <span style={{fontSize:12,color:"#64748B"}}>{s[0]}</span>
+                          <span style={{fontSize:12,fontWeight:500,color:"#CBD5E1",textAlign:"right",maxWidth:"60%"}}>{s[1]}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  <div style={{background:"#161B26",border:"1px solid rgba(255,255,255,0.06)",borderRadius:10,padding:"12px 16px",display:"flex",gap:16"}}>
+                    <span style={{fontSize:12,color:"#64748B"}}>📎 Belgeler:</span><span style={{fontSize:12,fontWeight:600,color:"#CBD5E1"}}>{belgeler.length} dosya</span>
+                    <span style={{fontSize:12,color:"#64748B"}}>📷 Fotoğraflar:</span><span style={{fontSize:12,fontWeight:600,color:"#CBD5E1"}}>{fotoğraflar.length} fotoğraf</span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer butonları */}
+        {!kayitOk&&(
+          <div style={{padding:"14px 20px",borderTop:"1px solid rgba(255,255,255,0.07)",display:"flex",justifyContent:"space-between",gap:10,background:"#111827",borderRadius:isMobile?"0":"0 0 16px 16px",position:"sticky",bottom:0}}>
+            <button onClick={()=>adim>1?setAdim(a=>a-1):onKapat()} style={{background:"rgba(255,255,255,0.05)",border:"1px solid rgba(255,255,255,0.1)",color:"#94A3B8",borderRadius:9,padding:"11px 20px",fontSize:13,fontWeight:600}}>
+              {adim===1?"İptal":"← Geri"}
+            </button>
+            <div style={{display:"flex",gap:10}}>
+              {adim<5?(
+                <button onClick={()=>setAdim(a=>a+1)} style={{background:"#4F46E5",border:"none",color:"#fff",borderRadius:9,padding:"11px 24px",fontSize:13,fontWeight:700}}>
+                  {adim===1&&taramaOk?"Devam Et ✓":"İleri →"}
+                </button>
+              ):(
+                <button onClick={kaydet} style={{background:"#10B981",border:"none",color:"#fff",borderRadius:9,padding:"11px 28px",fontSize:14,fontWeight:800}}>
+                  💾 Dosyayı Kaydet
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── GİRİŞ EKRANLARI ────────────────────────────────────────────────────────
 function RolSecim({onRol}){
   return(
@@ -644,6 +989,7 @@ function DanismanPanel({onCikis}){
 
   // Edit mode per kart: "dosya"|"sahip"|"sigorta"|"onarimMerkezi"|"eksper"|"adim-N" vb.
   const [editMode,setEditMode]=useState(null);
+  const [wizardAcik,setWizardAcik]=useState(false);
   const [saving,setSaving]=useState(null);
 
   // Fotoğraf
@@ -758,6 +1104,7 @@ function DanismanPanel({onCikis}){
         <div style={{display:"flex",gap:6,alignItems:"center"}}>
           {!isMobile&&<Chip renk="#64748B">{dosya.acilisTarihi}</Chip>}
           {!isMobile&&smsAktif&&<Chip renk="#4F46E5">📱 SMS · {smsSaati}</Chip>}
+          <button onClick={()=>setWizardAcik(true)} style={{background:"rgba(16,185,129,0.12)",border:"1px solid rgba(16,185,129,0.25)",color:"#10B981",borderRadius:7,padding:"5px 12px",fontSize:11,fontWeight:700}}>+ Yeni Dosya</button>
           <button onClick={onCikis} style={{background:"rgba(239,68,68,0.1)",border:"1px solid rgba(239,68,68,0.2)",color:"#EF4444",borderRadius:7,padding:"5px 12px",fontSize:11,fontWeight:700}}>Çıkış</button>
         </div>
       </div>
@@ -1215,6 +1562,7 @@ function DanismanPanel({onCikis}){
       )}
 
       <SmsToast toast={toast} onKapat={()=>setToast(null)}/>
+      {wizardAcik&&<YeniDosyaWizard onKapat={()=>setWizardAcik(false)} onKaydet={(data)=>{console.log("Yeni dosya kaydedildi",data);}}/>}
 
       {lightboxFoto&&(
         <Lightbox foto={lightboxFoto} onClose={()=>setLightboxFoto(null)} onPrev={()=>setLightboxFoto(filtrePhotos[lbIdx-1])} onNext={()=>setLightboxFoto(filtrePhotos[lbIdx+1])} hasPrev={lbIdx>0} hasNext={lbIdx<filtrePhotos.length-1}/>

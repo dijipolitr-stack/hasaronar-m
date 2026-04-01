@@ -494,7 +494,7 @@ function YeniDosyaWizard({onKapat,onKaydet}){
           max_tokens:800,
           messages:[{role:"user",content:[
             {type:"image",source:{type:"base64",media_type:"image/jpeg",data:ruhsatImg.split(",")[1]}},
-            {type:"text",text:'Bu bir Türk araç tescil belgesi veya ruhsatıdır. Görseldeki bilgileri bu JSON formatında döndür, bulunamayan alanlar için boş string kullan, sadece JSON döndür: {"plaka":"","saseNo":"","motorNo":"","marka":"","model":"","yil":"","ruhsatSeriNo":"","sahipAd":"","renk":""}'}
+            {type:"text",text:'Bu bir Türk araç tescil belgesi veya ruhsatıdır. Görseldeki bilgileri bu JSON formatında döndür, bulunamayan alanlar için boş string kullan, sadece JSON döndür: {"plaka":"","saseNo":"","motorNo":"","marka":"","model":"","yil":"","ruhsatSeriNo":"","sahipAd":"","sahipSoyad":"","tcVeyaVergiNo":"","renk":""}'}
           ]}]
         })
       });
@@ -502,10 +502,12 @@ function YeniDosyaWizard({onKapat,onKaydet}){
       const text=data.content?.find(b=>b.type==="text")?.text||"";
       const clean=text.replace(/```json|```/g,"").trim();
       const parsed=JSON.parse(clean);
+      const tamAd = [parsed.sahipAd||"", parsed.sahipSoyad||""].filter(Boolean).join(" ");
       setForm(p=>({...p,
         plaka:parsed.plaka||p.plaka,saseNo:parsed.saseNo||p.saseNo,motorNo:parsed.motorNo||p.motorNo,
         marka:parsed.marka||p.marka,model:parsed.model||p.model,yil:parsed.yil||p.yil,
-        ruhsatSeriNo:parsed.ruhsatSeriNo||p.ruhsatSeriNo,sahipAd:parsed.sahipAd||p.sahipAd,renk:parsed.renk||p.renk,
+        ruhsatSeriNo:parsed.ruhsatSeriNo||p.ruhsatSeriNo,
+        sahipAd:tamAd||p.sahipAd,tc:parsed.tcVeyaVergiNo||p.tc,renk:parsed.renk||p.renk,
       }));
       setTaramaOk(true);
     }catch(e){setTaramaHata(true);}
@@ -599,7 +601,7 @@ function YeniDosyaWizard({onKapat,onKaydet}){
                 <div style={{padding:"12px 16px",background:"rgba(16,185,129,0.07)",border:"1px solid rgba(16,185,129,0.25)",borderRadius:10}}>
                   <div style={{fontWeight:700,fontSize:13,color:"#10B981",marginBottom:10}}>✓ Otomatik Çekilen Veriler</div>
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-                    {[["Plaka",form.plaka],["Marka",form.marka],["Model",form.model],["Yıl",form.yil],["Şase No",form.saseNo],["Motor No",form.motorNo],["Ruhsat Seri No",form.ruhsatSeriNo],["Renk",form.renk]].filter(r=>r[1]).map(r=>(
+                    {[["Plaka",form.plaka],["Sahip",form.sahipAd],["TC / Vergi No",form.tc],["Marka",form.marka],["Model",form.model],["Yıl",form.yil],["Şase No",form.saseNo],["Motor No",form.motorNo],["Ruhsat Seri No",form.ruhsatSeriNo],["Renk",form.renk]].filter(r=>r[1]).map(r=>(
                       <div key={r[0]} style={{background:"rgba(255,255,255,0.03)",borderRadius:7,padding:"7px 10px"}}>
                         <div style={{fontSize:9,color:"#475569",fontWeight:600}}>{r[0]}</div>
                         <div style={{fontSize:12,fontWeight:600,color:"#CBD5E1"}}>{r[1]}</div>
@@ -632,7 +634,13 @@ function YeniDosyaWizard({onKapat,onKaydet}){
                 <div style={grid2}>
                   <div>{lbl("AD SOYAD")}{inp("sahipAd","Mehmet Yılmaz")}</div>
                   <div>{lbl("TC KİMLİK NO")}{inp("tc","12345678901",true)}</div>
-                  <div>{lbl("TELEFON")}{inp("telefon","0532 123 45 67",true)}</div>
+                  <div>
+                    <div style={{fontSize:11,color:"#EF4444",fontWeight:700,marginBottom:6,marginTop:12,display:"flex",alignItems:"center",gap:6}}>
+                      TELEFON <span style={{background:"rgba(239,68,68,0.15)",color:"#EF4444",borderRadius:4,padding:"1px 6px",fontSize:9}}>✱ Zorunlu</span>
+                    </div>
+                    <input type="tel" value={form.telefon} onChange={e=>sf("telefon",e.target.value)} placeholder="0532 123 45 67" style={{width:"100%",background:!form.telefon?"rgba(239,68,68,0.06)":"rgba(255,255,255,0.05)",border:`1px solid ${!form.telefon?"rgba(239,68,68,0.4)":"rgba(255,255,255,0.1)"}`,borderRadius:9,color:"#E2E8F0",padding:"12px 13px",fontSize:14,fontFamily:"'JetBrains Mono',monospace"}}/>
+                    {!form.telefon&&<div style={{fontSize:11,color:"#EF4444",marginTop:5,display:"flex",gap:5,alignItems:"center"}}>⚠ Müşteriyle iletişim için telefon numarası zorunludur</div>}
+                  </div>
                   <div>{lbl("E-POSTA")}{inp("email","eposta@...")}</div>
                 </div>
               </div>
@@ -741,7 +749,7 @@ function YeniDosyaWizard({onKapat,onKaydet}){
               {adim===1?"İptal":"← Geri"}
             </button>
             {adim<5
-              ? <button onClick={()=>setAdim(a=>a+1)} style={{background:"#4F46E5",border:"none",color:"#fff",borderRadius:9,padding:"11px 24px",fontSize:13,fontWeight:700}}>İleri →</button>
+              ? <button onClick={()=>{if(adim===2&&!form.telefon){alert("Lütfen araç sahibinin telefon numarasını girin.");return;}setAdim(a=>a+1);}} style={{background:adim===2&&!form.telefon?"rgba(79,70,229,0.4)":"#4F46E5",border:"none",color:"#fff",borderRadius:9,padding:"11px 24px",fontSize:13,fontWeight:700}}>İleri →</button>
               : <button onClick={kaydet} style={{background:"#10B981",border:"none",color:"#fff",borderRadius:9,padding:"11px 28px",fontSize:14,fontWeight:800}}>💾 Dosyayı Kaydet</button>
             }
           </div>
